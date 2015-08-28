@@ -1,0 +1,25 @@
+﻿@{
+    ViewBag.Title = "Error";
+}
+
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+<div>
+	@{
+		Enzigma.Platform.Objects.Error error = (Enzigma.Platform.Objects.Error)Model.Data;
+	<div id="errorMessage">
+		[@error.ErrorCode]
+		@error.ErrorMessage
+	</div>
+		if( Request.IsLocal )
+		{
+			<pre>
+@error.DebugMessage
+			</pre>
+		}
+ }
+</div>
+<script lang="javascript">
+	$(function () {
+		$("#errorMessage").errorMessage();
+	});
+</script>

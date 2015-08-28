@@ -1,0 +1,53 @@
+﻿@{
+    ViewBag.Title = "Report";
+}
+<link rel="stylesheet" href="@SystemVars.CDNBaseUrl/vendor/bootstrap/css/bootstrap.min.css" />
+<link rel="stylesheet" href="@SystemVars.CDNBaseUrl/vendor/bootstrap/css/bootstrap-theme.min.css" />
+<script src="@SystemVars.CDNBaseUrl/vendor/bootstrap/js/bootstrap.min.js"></script>
+<script src="@SystemVars.CDNBaseUrl/vendor/angular/draganddrop.js"></script>
+<script src="@SystemVars.CDNBaseUrl/vendor/moment/moment-with-locales.min.js"></script>
+<script src="@SystemVars.CDNBaseUrl/vendor/moment/moment-fquarter.min.js"></script>
+<script src="@SystemVars.CDNBaseUrl/vendor/bootstrap/js/bootstrap-datepicker.js"></script>
+<script src="@SystemVars.CDNBaseUrl/js/angular/enz-table.js"></script>
+<link rel="stylesheet" href="@SystemVars.CDNBaseUrl/css/angular/enz-table.css" />
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+@using Enzigma.Platform;
+@using Enzigma.Platform.Objects;
+@{
+    Report report = Engine.RetrieveById((String)Model.Session.Id, (String)Model.Data["params"]["Id"]).Data as Report;
+	if (report != null)
+	{
+		Model.Controls.ReportView("View", (String)Model.Session.Id, report);
+	}
+	else
+	{
+		report = new Report();
+		report.DisplayFields = "Name,ObjectName,DisplayAs";
+		report.Type = ReportType.Simple;
+		report.Name = report.Label = "Unnamed";
+		report.ObjectName = Engine.RetrieveSingleByField(Model.Session.Id as String, "ObjectDef", "Name", "FieldDef", DeletedOption.NonDeletedOnly).Data as ObjectDef;
+		Model.Controls.ReportView("View", (String)Model.Session.Id, report);
+	}
+}
+<style>
+    table, th, td {
+   /*border: 1px solid black;*/
+   text-align: left;
+   padding-left: 1%;
+}
+    tr, th {
+        border: inset;
+        border-width:1px;
+    }
+    .rowHeading {
+        font-weight:bold;
+    }
+    /*.reportHeading {
+        font-size: xx-large;
+    }*/
+</style>
+
+<div ng-app="ReportModule" class="container-fluid">
+	@Model.Controls.ReportView("View", (String)Model.Session.Id, report)
+</div>
+

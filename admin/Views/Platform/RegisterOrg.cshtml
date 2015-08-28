@@ -1,0 +1,64 @@
+﻿@{
+	ViewBag.Title = "Home";
+}
+@using Enzigma.Platform.Objects;
+@using Enzigma.Platform;
+
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+
+<form name="formOrg" ng-app="enz.controls" ng-controller="RegisterOrg" class="pure-form pure-form-stacked">
+	<div id="error"></div>
+	<fieldset>
+		<legend>{{layout.sections[0].Label}}</legend>
+		<div class="pure-g-r">
+			<div enz-field ng-model="org" form="formOrg" field="f" class="pure-u-1-5" ng-repeat="f in layout.sections[0].Fields">
+		</div>
+	</fieldset>
+
+	<fieldset>
+		<legend>{{layout.sections[1].Label}}</legend>
+		<div class="pure-g-r">
+			<div enz-field ng-model="user" form="formOrg" field="f" class="pure-u-1-5" ng-repeat="f in layout.sections[1].Fields">
+		</div>
+	</fieldset>
+
+	<button type="button" ng-click="registerOrg()" class="pure-button pure-button-primary pure-u-input">Submit</button>
+</form>
+
+<script lang="javascript">
+	function RegisterOrg($scope) {
+		$scope.org = { ObjType: 'Organization', Name: 'Enzigma Software Pvt. Ltd.', Email: 'test@enzigma.com', Phone1: '111-111-1111', Address1: 'Baner Road', Address2: 'Opp D-Mart', Country: 'India', State: 'MH', City: 'Pune', PostalCode: '411045' };
+		$scope.user = { ObjType: 'User', Email: 'hemanshu.shah@enzigma.com', Username: 'test@enzigma.com', FirstName: 'Hemanshu', LastName: 'Shah' };
+		$scope.registerOrg = function () {
+			if ($scope.formOrg.$valid) {
+				var action = { action: 'Create', data: { org: $scope.org, user: $scope.user, SendEmail: true } };
+				Engine.post('@SystemVars.ApplicationPath/api/org', action);
+			}
+		}
+		$scope.layout = {
+			sections: [
+			{
+				Label: 'Organization Information',
+				Fields: [
+					{ Name: 'Name' },
+					{ Name: 'Email' },
+					{ Name: 'Phone1' },
+					{ Name: 'Address1' },
+					{ Name: 'Address2' },
+					{ Name: 'Country' },
+					{ Name: 'State' },
+					{ Name: 'City' },
+					{ Name: 'PostalCode' }]
+			},
+			{
+				Label: 'Primary User Information',
+				Fields: [
+					{ Name: 'FirstName' },
+					{ Name: 'LastName' },
+					{ Name: 'Username' },
+					{ Name: 'Email' }]
+			}
+			]
+		};
+		}
+</script>
