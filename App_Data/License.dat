@@ -1,0 +1,5 @@
+﻿{
+	version: 1,
+	organization: {ObjType: 'Organization', Id: 'aaadaaaaaaaaaaaaba', Name: 'Enzigma Software Pvt. Ltd. (Sanitytest)', Email: 'platform@enzigma.com', Domain : 'sanity-test'},
+	administrator: {ObjType: 'User', Name: 'System Administrator', FirstName: 'System', LastName: 'Administrator', Email: 'platform@enzigma.com', Username: 'admin@sanitytest.enzigma.com', NewPassword: 'dfs$11!2sfds', NewTempPassword: 'dfsdf@s$11!2sfds'}
+}

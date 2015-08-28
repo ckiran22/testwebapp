@@ -1,0 +1,152 @@
+﻿@{
+	ViewBag.Title = "Test";
+}
+
+
+@section scripts {
+	@Scripts.Render("~/bundles/jqueryval")
+	<script src="http://cdn.alloyui.com/2.0.0pr6/aui/aui-min.js"></script>
+	
+}
+
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+
+<div ng-app ng-controller="MainController">
+	<div class="actionbar">
+		<button ng-click="save(page)" type="button">Save</button>
+		<button type="button">Cancel</button>
+	</div>
+
+
+	<div id="error" class="message-error"></div>
+	<div id="tabs">
+		<ul>
+			<li><a href="#sourcecode">Source</a></li>
+			<li><a id="previewTab" href="#preview">Preview</a></li>
+			<li><a href="#metadata">Metadata</a></li>
+		</ul>
+		<div id="sourcecode">
+			<div id="codeEditor"></div>
+		</div>
+		<div id="preview">
+			<div ng-bind-html-unsafe="preview" >
+			</div>
+		</div>
+		<div id="metadata">
+			<form id="formRecord">
+				<input type="hidden" ng-model="page.Id" name="Id" id="Id" />
+				<div class="field">
+					<label class="inline yui3-u-1-8" for="name">Name:</label>
+					<input ng-model="page.Name" name="Name" id="Name" class="validate[required] yui3-u-1-4" type="text" >
+				</div>
+				<div class="field">
+					<label class="inline yui3-u-1-8" for="name">Label:</label>
+					<input ng-model="page.Label" name="Label" id="Label" class="validate[required] yui3-u-1-4" type="text" >
+				</div>
+				<div class="field">
+					<label class="inline yui3-u-1-8" for="class">Class:</label>
+					<select ng-model="page.Class.Name" name="Class" id="class" class="validate[required] yui3-u-1-4" ng-options="c.Name as c.Name for c in classes">
+					</select>
+				</div>
+				<div class="field">
+					<label class="inline yui3-u-1-8" for="class">Object:</label>
+					<select ng-model="page.Object.Name" name="Class" id="class" class="validate[required] yui3-u-1-4" ng-options="c.Name as c.Name for c in objects">
+					</select>
+				</div>
+				<div class="field">
+					<label class="inline yui3-u-1-8" for="description">Desription:</label>
+					<textarea ng-model="page.Description" name="Description" id="description" class="validate[required] yui3-u-1-4">
+					</textarea>
+				</div>
+			</form>
+		</div>
+	</div>
+
+	<div class="actionbar">
+		<button ng-click="save(page)" type="button">Save</button>
+		<button class="btn" type="button">Cancel</button>
+	</div>
+</div>
+<script lang="javascript">
+	var editor, formValidator;
+	$(function () {
+		$('body').mask('Loading...');
+		$("#tabs").tabs();
+		$("#formRecord").validationEngine({ promptPosition: 'centerRight' });
+		//var params = $.parseParams(document.location.search);
+		//$('#classId').val(params.id);
+
+
+		YUI().use(
+	  'aui-ace-editor',
+	  function (Y) {
+	  	editor = new Y.AceEditor(
+		  {
+		  	boundingBox: '#codeEditor',
+		  	height: '500',
+		  	value: '@Html.Raw(HttpUtility.JavaScriptStringEncode((String)Model.Data.Record["SourceCode"]))',
+		  	width: '940'
+		  }
+		).render();
+	  	$('body').unmask();
+	  }
+	);
+	});
+  function MainController($scope, $http) {
+  	$scope.page = @Html.Raw(Model.Data.Record.ToJson());
+	@{
+	 Error error = Enzigma.Platform.Engine.RetrieveAll( Model.Session.Id, Class.TBName, DeletedOption.NonDeletedOnly);
+		if( error.Success )
+		{
+  			<text>$scope.classes = @Html.Raw(JsonObject.Serialize(error.Data));</text>
+		}
+	}
+
+  	if ($scope.page.Id) {
+  		$http.get('@SystemVars.ApplicationPath/api/page?preview=true&id=' + $scope.page.Id).success(function (data) {
+  			if (data.Success)
+  				$scope.preview = data.Data;
+			else
+  				$scope.preview = data.ErrorMessage;
+  		});
+  	}
+	@using Enzigma.Platform.Objects;
+	@{
+  			error = Enzigma.Platform.Engine.GetAllObjectDef(Model.Session.Id, DeletedOption.NonDeletedOnly);
+  			if (error.Success)
+			{
+  				<text>
+  				$scope.objects = @Html.Raw(JsonObject.Serialize(error.Data))
+				</text>
+			}
+	}
+  	$scope.save = function (page) {
+  		//alert(editor.get('value'));
+  		var isValid = $("#formRecord").validationEngine('validate');
+  		if (isValid) {
+  			page.sourcecode = editor.get('value');
+  			$('body').mask('Loading...');
+  			Engine.save( page, function (data) {
+  				//do something with the response
+  				if (data.Success) {
+  					var id = $scope.page.Id;
+  					$scope.preview = data.Preview;
+  					if (id) {
+  						$('#error').removeClass("message-error").addClass("message-success").html('Page saved successfully');
+  						$('#error').show();
+  						$scope.$apply()
+  						$('#previewTab').click();
+  						//$('#error').hide(5000);
+  					}
+  					else
+  						document.location.href = '/platform/r/' + data.Data.Id;
+  				}
+  				else {
+  					$('#error').removeClass("message-success").addClass("message-error").html(data.ErrorMessage);
+  					$('#error').show();
+  				}
+  			});
+  		}
+  	};
+  }
+</script>

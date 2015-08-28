@@ -1,0 +1,38 @@
+﻿@{
+    ViewBag.Title = "InstallSchema";
+}
+<style>
+    #body
+    {
+        margin-left: 15%;
+    }
+</style>
+Installing...
+
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+@using Enzigma.Platform;
+@using Enzigma.Platform.Objects;
+@{
+	
+	Error error = Engine.UpgradeDatabase(Model.Session.Id);
+	if( error.Success )
+	{
+		<div>Database upgraded successfully.</div>
+	}
+	else
+	{
+		<div>@error.ErrorMessage</div>
+		<div>@error.DebugMessage</div>
+	}
+	String strPackage = System.IO.File.ReadAllText(Server.MapPath("~/App_Data/DynamixModel.js"));
+	error = Engine.InstallPackage(Model.Session.Id, strPackage);
+	if( error.Success )
+	{
+		<div>Installed successfully.</div>
+	}
+	else
+	{
+		<div>@error.ErrorMessage</div>
+		<div>@error.DebugMessage</div>
+	}
+}

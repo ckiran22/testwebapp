@@ -1,0 +1,119 @@
+﻿@{
+	ViewBag.Title = "Test";
+}
+
+@section scripts {
+	@Scripts.Render("~/bundles/jqueryval")
+	<script src="http://cdn.alloyui.com/2.0.0pr6/aui/aui-min.js"></script>
+	<link rel="stylesheet" type="text/css" href="~/Content/cssgrids-min.css">
+}
+
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+
+<div ng-app ng-controller="MainController">
+	<div class="ui-widget-header ui-corner-all">
+		<button id="saveTop" class="save" ng-click="save(class)" >Save</button>
+	</div>
+
+	<form id="formRecord">
+		<div id="error" class="message-error"></div>
+
+		<div id="tabs">
+			<ul>
+				<li><a id="sourcecodeTab" href="#sourcecode">Source Code</a></li>
+				<li><a id="metadataTab" href="#metadata">Metadata</a></li>
+			</ul>
+			<div id="sourcecode">
+				<div id="sourceHeaderTitle" class="ui-widget-header ui-corner-all" onclick="$('#sourceHeader').toggle()" style="cursor: pointer;">Source Header</div>
+				<pre id="sourceHeader" style="display:none;">@Enzigma.Platform.Engine.GetSourceCodeHeader(Model.Session.LoggedInUser, "{{class.Name}}", "{{class.Type}}")</pre>
+				<div id="codeEditor"></div>
+				<pre>@Enzigma.Platform.Engine.GetSourceCodeFooter(Model.Session.LoggedInUser, "{{class.Name}}", "{{class.Type}}");</pre>
+			</div>
+			<div id="metadata">
+				<input type="hidden" id="recordId" ng-model="class.Id" />
+				<div id="addnamehere" class="field">
+					<label class="inline yui3-u-1-8" for="name">Name:</label>
+					<input type="text" class="yui3-u-1-8" id="Name" ng-model="class.Name" />
+				</div>
+				<div class="field">
+					<label class="inline yui3-u-1-8" for="classType">Class Type:</label>
+					<select ng-model="class.Type" id="classType" class="validate[required] yui3-u-1-8">
+						<option>Model</option>
+						<option>Controller</option>
+					</select>
+				</div>
+				<div class="field">
+					<label class="inline yui3-u-1-8" for="description">Desription:</label>
+					<textarea ng-model="class.Description" id="description" class="validate[required] yui3-u-1-4">
+					</textarea>
+				</div>
+			</div>
+		</div>
+	</form>
+	<div class="ui-widget-header ui-corner-all">
+		<button id="saveBottom" class="save">Save</button>
+	</div>
+</div>
+<script lang="javascript">
+	var editor, formValidator;
+	$(function () {
+		$(".save").button({
+			icons: {
+				primary: "ui-icon-disk"
+			}
+		});
+		//$("#addnamehere").append('<input id="name" ng-model="class.Name" class="validate[required] yui3-u-1-8" type="text" value="Contact">');
+		$('#Name').attr("ng-model", "class.Name");
+		$('body').mask('Loading...');
+		$("#tabs").tabs();
+		if (!$("#recordId").val())
+			$("#metadataTab").click();
+		$("#formRecord").validationEngine({ promptPosition: 'centerRight' });
+
+		
+
+		YUI().use(
+	  'aui-ace-editor',
+	  function (Y) {
+	  	editor = new Y.AceEditor(
+		  {
+		  	boundingBox: '#codeEditor',
+		  	height: '500',
+		  	value: '@Html.Raw(HttpUtility.JavaScriptStringEncode((String)Model.Data.Record["SourceCode"]))',
+		  	width: '940'
+		  }
+		).render();
+	  	$('body').unmask();
+	  }
+	);
+	});
+
+	function MainController($scope) {
+		$scope.class = { Id: '@Model.Data.Record.Id', Type: '@Model.Data.Record.Type', Name: '@Model.Data.Record.Name', objType: 'Class', Description: '@Model.Data.Record.Description' };
+
+		$scope.save = function (classdata) {
+			//alert(editor.get('value'));
+			var isValid = $("#formLogin").validationEngine('validate');
+			if (isValid) {
+				$('body').mask('Loading...');
+				classdata.SourceCode = editor.get('value');
+				Engine.save( classdata, function (data) {
+					//do something with the response
+					if (data.Success) {
+						if (classdata.Id) {
+							$('#error').removeClass("message-error").addClass("message-success").html('Class saved successfully');
+							$('#error').show();
+							$('#error').hide(5000);
+						}
+						else
+							document.location.href = '/platform/r/' + data.Data.Id;
+					}
+					else {
+						$('#error').removeClass("message-success").addClass("message-error").html(data.ErrorMessage);
+						$('#error').show();
+					}
+				});
+			}
+		};
+  }
+</script>

@@ -1,0 +1,72 @@
+﻿@{
+    ViewBag.Title = "Email Template";
+}
+
+
+@using Enzigma.Platform
+@using Enzigma.Platform.Objects
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+<div ng-app="EmailTemplate">
+    <script type="text/javascript">
+		var app = angular.module('EmailTemplate', ['enz.controls']);
+
+        app.controller('EmailTemplateController', function ($scope) {
+            $scope.record = {};
+            $scope.record["ObjType"] = "EmailTemplate";
+            $scope.displayButtons = [];
+            $scope.showstandardbuttons = true;
+            $scope.recordOrig = angular.copy($scope.record);
+            
+            $scope.save = function () {
+                Engine.save($scope.record, function (data) {
+                    if (data.Success) {
+                        $scope.record = data.Data;
+                        $scope.recordOrig = angular.copy($scope.record);
+                        $scope.formRecord.$setPristine();
+                        $scope.$apply();
+
+                    }
+                    else {
+                        alert(data.ErrorMessage);
+                      
+                         
+                    }
+                });
+            }
+            $scope.cancel = function () {
+                if ($scope.formRecord.$dirty) {
+                    $scope.record = angular.copy($scope.recordOrig);
+                    $scope.formRecord.$setPristine();
+                }
+            }
+           
+            
+        });
+    </script>
+    <!-- Start EmailTemplateController -->
+    <div ng-controller="EmailTemplateController">
+        <button class="pure-button pure-button-primary" onclick="javascript: window.open(Engine.AppPath + '/EmailTemplate');">Create Email Template</button>        
+        <form name="formRecord" class="pure-form pure-form-stacked">            
+            <fieldset>
+                <legend>Email Template</legend>
+                <enz-actionbar> </enz-actionbar>
+                <div class="pure-g-r" >
+                    <div class="pure-u-1-2" enz-field field="Name" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-2" enz-field field="Type" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-2" enz-field field="Subject" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-2" enz-field field="ObjectName" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-2" enz-field field="From" ng-model="record" form="formRecord"></div>
+
+                    <div class="pure-u-1-2" enz-field field="PlainTextBody" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-2" enz-field field="HTMLBody" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-2" enz-field field="HtmlPage" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-2" enz-field field="PlainTextPage" ng-model="record" form="formRecord"></div>
+
+                </div>
+                <enz-actionbar> </enz-actionbar>
+            </fieldset>
+        </form>
+
+    </div>
+    <!-- End EmailTemplateController -->
+</div>
