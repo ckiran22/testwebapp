@@ -1,0 +1,359 @@
+﻿@{
+	ViewBag.Title = "Import";
+}
+
+<style>
+	table.mapping {
+		border: 1px solid #808080;
+		width: 500px;
+	}
+
+	table.fields {
+		border: 1px solid #808080;
+		width: 250px;
+	}
+
+	td {
+		border: 1px solid #808080;
+	}
+
+		td.dropHolder {
+			border: 1px dashed #808080;
+			background-color: #e2dede;
+		}
+
+	.dragField {
+		cursor: default;
+		border: 1px solid #808080;
+		font-size: 90%;
+		padding-left: 0.4em;
+	}
+</style>
+<div id="tabs" ng-app="App">
+	<ul>
+		<li><a href="#tabImportTool">Import Tool</a></li>
+		<li><a href="#tabImportLog" id="tabButtonImportLog">Log</a></li>
+	</ul>
+	<div id="tabImportTool">
+		<div id="importTool" ng-controller="ImportController">
+			<form class="pure-form pure-form-stacked">
+				<fieldset>
+					<legend>Importer</legend>
+					<div id="error"></div>
+					<div class="pure-g-r">
+						<div class="pure-u-1-2">
+							<label for="inputFile">Input file</label>
+							<input id="inputFile" type="file" ng-model="inputFile" onchange="angular.element(this).scope().loadHeader()">
+						</div>
+
+						<div class="pure-u-1-2">
+							<label for="object">Object</label>
+							<select id="object" ng-change="OnObjectChange()" ng-model="import.objectName" ng-options="c.Name as c.Name for c in objects"></select>
+						</div>
+
+						<div class="pure-u-1-2">
+							<label for="fieldMapping">Field Mapping</label>
+							<select id="fieldMapping" ng-change="OnFieldMappingChange()" ng-model="import.selectedFieldMapping" ng-options="m.Name for m in fieldMappings"></select>
+						</div>
+					</div>
+
+					<button type="button" ng-click="deleteMapping(import.selectedFieldMapping)" ng-disabled="!import.selectedFieldMapping" class="pure-button pure-button-error">Delete Mapping</button>
+					<button type="button" ng-click="saveMapping(import.selectedFieldMapping)" ng-disabled="!import.selectedFieldMapping" class="pure-button">Save Mapping</button>
+					<button type="button" ng-click="saveMappingAs()" ng-disabled="!import.objectName" class="pure-button">Save Mapping As</button>
+					<div>
+						<br />
+					</div>
+					<button type="button" ng-click="clearMap()" class="pure-button pure-button-primary">Clear Mappings</button>
+					<button type="button" ng-click="autoMap()" class="pure-button pure-button-primary">Auto Map</button>
+					<button type="button" ng-click="import()" ng-disabled="bIsMappingDirty" class="pure-button pure-button-primary" style="float: right;">Import</button>
+				</fieldset>
+				<table style="border: 0px; width: 100%;">
+					<tr>
+						<td style="vertical-align: top;">
+							<table class="mapping" style="width: 500px;">
+								<tr>
+									<td>Object Field</td>
+									<td>CSV Field</td>
+								</tr>
+								<tr ng-repeat="f in objectFields" id="row__{{f.Name}}">
+									<td title="f.Label" style="min-width: 250px;">{{f.Name}}</td>
+									<td class="dropHolder" style="min-width: 250px;"></td>
+								</tr>
+							</table>
+						</td>
+						<td style="width: 50px;"></td>
+						<td style="vertical-align: top; min-width: 200px;">
+							<div>CSV Fields</div>
+							<div id="dragFields" style="min-width: 250px;">
+								<div ng-repeat="h in csvHeaderFields" class="dragField" fieldname="{{h}}">{{h}}</div>
+							</div>
+				</table>
+				</td></tr></table>
+			</form>
+			<div id="panelSaveMappingAs" style="display: none;" title="Save Mapping As">
+				<form class="pure-form pure-form-stacked">
+					<fieldset>
+						<div class="pure-g-r">
+							<div id="errorSaveAs" class="pure-u-1"></div>
+							<div class="pure-u-1">
+								<label for="mappingName">Mapping Name</label>
+								<input id="mappingName" type="text" ng-model="import.fieldMapping.Name">
+							</div>
+							<div class="pure-u-1">
+								<label for="mappingcomments">comments</label>
+								<textarea id="mappingcomments" ng-model="import.fieldMapping.Comments"></textarea>
+							</div>
+							<button ng-click="saveMapping(null)" type="button" class="pure-button pure-button-primary">Save</button>
+						</div>
+					</fieldset>
+				</form>
+			</div>
+		</div>
+	</div>
+	<div id="tabImportLog">
+		@Model.Controls.ngListView("View", "Object,InputFile,OutputFile,Status,StartedOn,CompletedOn,ErrorMessage", "ImportLog", "")
+	</div>
+</div>
+@using Enzigma.Platform
+@using Enzigma.Platform.Objects
+
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+
+<script lang="javascript">
+	
+	function ImportController($scope,$timeout,$http)
+	{
+		$scope.import = {objectName: '',inputFile:null, fieldMapping: {objType: 'ImportFieldSettings'}}
+		$scope.objects = @Html.Raw(JsonObject.Serialize(Engine.GetAllObjectDef(Model.Session.Id, DeletedOption.NonDeletedOnly).Data));
+
+		$scope.bIsMappingDirty = true;
+		$scope.reader = new FileReader();
+		$scope.csvHeaderFields = [];
+		$scope.csvHeaderFieldsMap = {};
+		$scope.objectFields = [];
+		$scope.objectFieldsMap = {};
+		$scope.fieldMappings = [];
+
+		$scope.saveMappingAs = function(){$("#panelSaveMappingAs").dialog({isModal: true, height: 300, width: 400});}
+
+		$scope.sendImportData = function(evt){
+			if (evt.target.readyState == FileReader.DONE) { // DONE == 2
+				$.ajax({
+					url: '@SystemVars.ApplicationBaseUrl/api/import',
+						type: "POST",
+						contentType: "application/octet-stream",
+						dataType: "json",
+						headers: {action: 'Save', mappingId : $scope.import.selectedFieldMapping.Id, objectName : $scope.import.objectName},
+						processData: false,
+						data: evt.target.result,
+						complete: function () {
+							HideProcessing();
+						},
+						error: function (xhr, status, error) { HideProcessing(); showXHRError(xhr, status, error, errorElement);},
+						success: function (data) {
+							showError(data);
+							if (data.Success) {
+								alert('Import queued successfully');
+							}
+							else if (data.Code == 'SessionExpired') {
+								loginPrompt();
+							}
+						}
+					});
+		}
+			}
+
+	$scope.import = function(){
+		if (window.File && window.FileReader && window.FileList && window.Blob) {
+			var inputFile = document.getElementById('inputFile');
+			if( document.getElementById('inputFile').files.length > 0 ){
+				var file = document.getElementById('inputFile').files[0];
+				$scope.reader.onloadend = $scope.sendImportData;
+				$scope.reader.readAsBinaryString(file);
+				ShowProcessing();
+			}
+		} else {
+			alert('The File APIs are not fully supported in this browser.');
+		}
+	}
+
+	$scope.parseHeader = function(evt) {
+		if (evt.target.readyState == FileReader.DONE) { // DONE == 2
+			Engine.post('@SystemVars.ApplicationBaseUrl/api/import', {action : 'ParseHeader', data: {csvData: evt.target.result}}, function(data){
+				if( data.Success ){
+					$("#error").hide();
+					$scope.csvHeaderFields = data.Data;
+					$scope.csvHeaderFieldsMap = {};
+					$.each( $scope.csvHeaderFields, function(index, field){
+						$scope.csvHeaderFieldsMap[field.toLowerCase()] = field;
+					});
+					$scope.$apply();
+					$timeout($scope.makeSortable);
+				}
+			});
+		}
+	};
+
+	$scope.clearMap = function(){
+		$.each($("tr[id^='row__']"), function(index, row){
+			var field = $(row).find('[fieldname]');
+			if( field && field.length ){
+				field.parent().addClass('dropHolder')
+				field.remove();
+			}
+		});
+		$scope.bIsMappingDirty = true;
+	}
+
+	$scope.OnFieldMappingChange = function(){
+		if( $scope.import.selectedFieldMapping && $scope.import.selectedFieldMapping.Mappings){
+			$scope.clearMap();
+			var mappings = JSON.parse($scope.import.selectedFieldMapping.Mappings);
+			for(var fieldName in mappings ) {
+				var lowerName = fieldName.toLowerCase();
+				var fieldDef = $scope.objectFieldsMap[lowerName];
+				if( fieldDef ) {
+					$('#row__' + fieldDef.Name).find('.dropHolder').html('<div fieldname="' + mappings[fieldName] + '">' + mappings[fieldName] + '<span class="ui-icon ui-icon-trash del" style="float:right;"></span></div>').find('.del').click($scope.deleteField);
+					$('#row__' + fieldDef.Name).find('.dropHolder').removeClass('dropHolder');
+				}
+			}
+		}
+		$scope.bIsMappingDirty = false;
+	}
+
+	$scope.autoMap = function(){
+		if( $scope.csvHeaderFields && $scope.csvHeaderFields.length > 0 && $scope.objectFields && $scope.objectFields.length > 0 ){
+			$.each( $scope.objectFields, function(index, field){
+				var lowerName = field.Name.toLowerCase();
+				var fieldName = $scope.csvHeaderFieldsMap[lowerName];
+				if( fieldName ) {
+					$('#row__' + field.Name).find('.dropHolder').html('<div fieldname="' + fieldName+ '">' + fieldName + '<span class="ui-icon ui-icon-trash del" style="float:right;"></span></div>').find('.del').click($scope.deleteField);
+					$('#row__' + field.Name).find('.dropHolder').removeClass('dropHolder');
+				}
+			});
+		}
+		$scope.bIsMappingDirty = true;
+	}
+
+	$scope.deleteField = function(e){
+		$(e.target).parent().parent().addClass("dropHolder");
+		$(e.target).parent().remove();
+		$("#importTool").scope().bIsMappingDirty = true;
+		$("#importTool").scope().$apply();
+	}
+
+	$scope.deleteMapping = function(mapping){
+		if( confirm('Are you sure you want to delete Mapping? ' + mapping.Name) ){
+			Engine.delete(mapping, function(data){
+				if( data.Success ) {
+					$.each($scope.fieldMappings, function(index,mapping){
+						if( mapping && mapping.Id == data.Data.Id ) {
+							$scope.fieldMappings.splice(index, 1);
+						}
+					});
+					
+					$scope.$apply();
+				}
+			});
+		}
+	}
+
+	$scope.saveMapping = function(mappingSelected){
+		var mapping = {};
+		if(  $scope.objectFields ){
+			$.each( $scope.objectFields, function(index, field){
+				var csvField = $('#row__' + field.Name).find('[fieldname]').attr("fieldname");
+				if( csvField )
+					mapping[field.Name] = csvField;
+			});
+		}
+
+		if( !mappingSelected ) {
+			$("#panelSaveMappingAs").dialog('close');
+			$scope.import.fieldMapping.ObjType = 'ImportFieldSettings';
+			$scope.import.fieldMapping.Mappings = JSON.stringify(mapping);
+			$scope.import.fieldMapping.Object = $scope.import.objectName;
+			mappingSelected = $scope.import.fieldMapping;
+		}
+		else{
+			mappingSelected.Mappings = JSON.stringify(mapping);
+		}
+
+		Engine.save(mappingSelected, function(data){
+			if( data.Success ) {
+				$scope.bIsMappingDirty = false;
+				if( data.IsCreated ){
+					$scope.fieldMappings.push(data.Data);
+					$scope.import.selectedFieldMapping = data.Data;
+				}
+				$scope.$apply();
+			}
+		}, 'errorSaveAs');
+	}
+
+	var copyHelper;
+	$scope.makeSortable = function(){
+		$('#dragFields').sortable({connectWith: ".dropHolder", helper: function (e, li) {
+			copyHelper = li.clone().insertAfter(li);
+			return li.clone();
+		},
+			stop: function (e) {
+				copyHelper && copyHelper.remove();
+			}
+		});
+		$('.dropHolder').sortable({
+			receive: function(e){
+				copyHelper = null;
+				$(e.target).find('div').append('<span class="ui-icon ui-icon-trash del" style="float:right;"></span>').find('.del').click($scope.deleteField);
+				$(e.target).removeClass("dropHolder");
+				$("#importTool").scope().bIsMappingDirty = true;
+				$("#importTool").scope().$apply();
+			}
+		})
+	}
+
+	$scope.OnObjectChange = function(){
+		$scope.import.selectedFieldMapping = null;
+		RESTGet('@SystemVars.ApplicationBaseUrl/api/fieldDef?object=' + $scope.import.objectName, function(data){
+			if( data.Success ) {
+				$("#error").hide();
+				$scope.objectFields = data.Data;
+				$scope.objectFieldsMap = {};
+				$.each( $scope.objectFields, function(index, field){
+					$scope.objectFieldsMap[field.Name.toLowerCase()] = field;
+				});
+				$scope.$apply();
+				$timeout($scope.makeSortable);
+			}
+		});
+
+		RESTGet('@SystemVars.ApplicationBaseUrl/api/data?query=Select Id, Name, Mappings, Comments, Object From [ImportFieldSettings] Where Object = \'' + $scope.import.objectName + '\'', function(data){
+			$("#error").hide();
+			$scope.fieldMappings = data.Data;
+			$scope.$apply();
+		});
+	}
+
+	$scope.loadHeader = function(e){
+		if (window.File && window.FileReader && window.FileList && window.Blob) {
+			var inputFile = document.getElementById('inputFile');
+			if( document.getElementById('inputFile').files.length > 0 ){
+				var file = document.getElementById('inputFile').files[0];
+				$scope.reader.onloadend = $scope.parseHeader;
+				var blob = file.slice(0, 10240);
+				$scope.reader.readAsBinaryString(blob);
+			}
+		} else {
+			alert('The File APIs are not fully supported in this browser.');
+		}
+	}
+}
+
+$(function(){
+	$("#tabs").tabs({
+		activate: function( event, ui ) {
+			$(window).resize();
+		}
+	});
+})
+</script>

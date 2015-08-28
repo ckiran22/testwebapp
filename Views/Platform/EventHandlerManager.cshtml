@@ -1,0 +1,1026 @@
+﻿@{
+    ViewBag.Title = "Event Handler Manager";
+}
+
+
+@using Enzigma.Platform
+@using Enzigma.Platform.Objects
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+
+
+<div ng-app="EventHandler">
+    <script type="text/javascript">
+        var app = angular.module('EventHandler', ['enz.controls']);
+
+        app.run(function ($rootScope) {
+            $rootScope.EventHandler = null;
+
+        });
+        app.controller('EventHandlerController', function ($scope) {
+            $scope.test = 'edit';
+            $scope.record = {};
+            $scope.record["ObjType"] = "EventHandler";
+            $scope.displayButtons = [];
+            $scope.showstandardbuttons = true;
+            var recordId = '@Model.Data["params"]["Id"]';
+            $scope.modetype = 'e';
+            $scope.mode = "e";
+
+            $scope.recordOrig = angular.copy($scope.record);
+            $scope.save = function () {
+
+                Engine.save($scope.record, function (data) {
+                    if (data.Success) {
+                        $scope.record = data.Data;
+                        $scope.$parent.EventHandler = $scope.record;
+                        var EventHandlerActionscope = angular.element('[ng-controller=EventHandlerActionController]').scope();
+                        EventHandlerActionscope.showEventHandlerActionController();
+                        $scope.recordOrig = angular.copy($scope.record);
+                        $scope.modetype = 'v';
+                        $scope.formRecord.$setPristine();
+                        $scope.$apply();
+
+                    }
+                    else {
+                        alert(data.ErrorMessage);
+                        $scope.$parent.EventHandler = null;
+                        $scope.$apply();
+                    }
+                });
+            }
+            $scope.cancel = function () {
+                $scope.mode = 'view';
+                if ($scope.formRecord.$dirty) {
+                    $scope.record = angular.copy($scope.recordOrig);
+                    $scope.formRecord.$setPristine();
+                }
+            }
+            if (!angular.equals(recordId, undefined) && !angular.equals(recordId, '')) {
+                Engine.get(Engine.AppPath + "/api/data?query=SELECT * FROM [EventHandler] where Id='" + recordId + "'", function (data) {
+                    if (data.Success && data.Data.length > 0) {
+                        $scope.record = data.Data[0];
+                        $scope.recordOrig = angular.copy($scope.record);
+                        $scope.$parent.EventHandler = $scope.record;
+                        var EventHandlerActionscope = angular.element('[ng-controller=EventHandlerActionController]').scope();
+                        EventHandlerActionscope.showEventHandlerActionController();
+                        $scope.modetype = 'e';
+                        $scope.formRecord.$setPristine();
+                        $scope.$apply();
+                    }
+
+                });
+            }
+
+
+        });
+    </script>
+    <!-- Start EventHandlerController -->
+    <div ng-controller="EventHandlerController">
+        <button class="pure-button pure-button-primary" onclick="javascript:window.open(Engine.AppPath+'/EventHandlerManager');">Create Event Handler</button>
+        <!-- Start EventHandler form-->
+        <form name="formRecord" class="pure-form pure-form-stacked">
+
+            <fieldset>
+                <legend>Event Handler</legend>
+                <enz-actionbar> </enz-actionbar>
+                <div class="pure-g-r">
+                    <div class="pure-u-1-5" enz-field field="Name" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-5" enz-field field="Label" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-5" enz-field field="IsActive" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-5" enz-field field="ObjectName" ng-model="record" form="formRecord" ng-click="OnObjectChange()"></div>
+                    <div class="pure-u-1-5"></div>
+                    <div class="pure-u-1-5" enz-field field="Action" ng-model="record" form="formRecord"></div>
+                    <div class="pure-u-1-5"></div>
+                </div>
+                <div class="pure-u-1-5" enz-field field="Condition" ng-model="record" form="formRecord"></div>
+            </fieldset>
+        </form>
+        <!-- End EventHandler form -->
+    </div>
+    <!-- End EventHandler Controller -->
+    <!-- Start EventHandlerActionController -->
+    <script type="text/javascript">
+
+        app.controller('EventHandlerActionController', function ($scope) {
+            //$scope.EventHandlerActions = [];
+            //Start EventHandlerAction
+            $scope.record = {};
+            $scope.showstandardbuttons = true;
+            $scope.displayButtons = [];
+            $scope.record["ObjType"] = "EventHandlerScheduler";
+            $scope.record["ScheduleOn"] = "Immidiate";
+            $scope.showEventHandlerActionController = function () {
+                $scope.getObjectFields();
+                $scope.getAllEventHandlerActions();
+
+            }
+            $scope.showEventHandlerActionDialog = function () {
+                $("#EventHandlerActionDialog").dialog("open");
+                $scope.record = {};
+                $scope.record["ObjType"] = "EventHandlerScheduler";
+                $scope.record["ScheduleOn"] = "Immidiate";
+                $scope.record["Name"] = " ";
+                $scope.record["EventHandler"] = $scope.$parent.EventHandler;
+            }
+            $scope.EventHandlerActionsById = {};
+            $scope.getAllEventHandlerActions = function () {
+                Engine.get(Engine.AppPath + "/api/data?query=SELECT * FROM [EventHandlerScheduler] where EventHandler='" + $scope.$parent.EventHandler.Id + "'", function (data) {
+                    //$scope.EventHandlerActions = data.Data;
+                    $scope.EventHandlerActionsById = {};
+                    var Keyset = "(";
+                    if (data.Data.length > 0)
+                        for (var i in data.Data) {
+                            $scope.EventHandlerActionsById[data.Data[i].Id] = { IsEditScheulde:false, "Data": data.Data[i], "FieldUpdate": [], "CreateRecord": [], "SendEmail": [] };
+
+
+                            if (parseInt(i) + 1 == data.Data.length)
+                                Keyset = Keyset + "'" + data.Data[i].Id + "')";
+                            else
+                                Keyset = Keyset + "'" + data.Data[i].Id + "',";
+                        }
+                    if (data.Data.length == 0) {
+                        Keyset = null;
+                    }
+                    $scope.getAllActionChildRecords(Keyset);
+                    $scope.$apply();
+                });
+
+            }
+
+            $scope.saveEventHandlerAction = function () {
+                Engine.save($scope.record, function (data) {
+                    if (data.Success) {
+                        $scope.EventHandlerActionsById[data.Data.Id] = { IsEditScheulde:false, "Data": data.Data, "FieldUpdate": [], "CreateRecord": [], "SendEmail": [] };
+                        // $scope.getAllEventHandlerActions();
+                        $("#EventHandlerActionDialog").dialog("close");
+                        $scope.$apply();
+                    }
+                });
+            }
+            $scope.cancelEventHandlerAction = function () {
+                $scope.record = {};
+                $scope.record["ObjType"] = "EventHandlerScheduler";
+                $scope.record["ScheduleOn"] = "Immediate";
+                $scope.record["EventHandler"] = $scope.$parent.EventHandler;
+                $("#EventHandlerActionDialog").dialog("close");
+            }
+            $scope.actionRecordToDelete = {};
+            $scope.deleteEventHandlerAction = function (actionRecordToDelete) {
+                $scope.actionRecordToDelete = actionRecordToDelete;
+                $("#dialogDeleteConfirmAction").dialog("open");
+
+            }
+
+            $scope.editSchedule = function(){
+
+            }
+            //End EventHandlerAction
+
+            $scope.getAllActionChildRecords = function (setActions) {
+
+                if (setActions != null) {
+                    Engine.get(Engine.AppPath + "/api/data?query=SELECT * FROM [EventHandlerUpdateField] where EventHandlerScheduler In " + setActions, function (data) {
+                        if (data.Data.length > 0) {
+
+                            for (var key in $scope.EventHandlerActionsById) {
+                                for (var j in data.Data) {
+                                    if (data.Data[j].EventHandlerScheduler.Id == key) {
+                                        $scope.EventHandlerActionsById[key].FieldUpdate.push(data.Data[j]);
+                                    }
+                                }
+                            };
+                        }
+                        $scope.$apply();
+                    });
+                    Engine.get(Engine.AppPath + "/api/data?query=SELECT * FROM [EventHandlerSendEmail] where EventHandlerScheduler In " + setActions, function (data) {
+
+                        if (data.Data.length > 0) {
+                            for (var key in $scope.EventHandlerActionsById) {
+                                for (var j in data.Data) {
+                                    if (data.Data[j].EventHandlerScheduler.Id == key) {
+                                        $scope.EventHandlerActionsById[key].SendEmail.push(data.Data[j]);
+                                    }
+                                }
+                            }
+                        }
+                        $scope.$apply();
+                    });
+                    Engine.get(Engine.AppPath + "/api/data?query=SELECT * FROM [EventHandlerCreateRecord] where EventHandlerScheduler In " + setActions, function (data) {
+
+                        if (data.Data.length > 0) {
+                            for (var key in $scope.EventHandlerActionsById) {
+                                for (var j in data.Data) {
+                                    if (data.Data[j].EventHandlerScheduler.Id == key) {
+                                        $scope.EventHandlerActionsById[key].CreateRecord.push(data.Data[j]);
+                                    }
+                                }
+                            };
+                        }
+                        $scope.$apply();
+                    });
+
+                }
+            }
+            $scope.editRecord = function (recordToEdit) {
+
+                if (recordToEdit.ObjType == "EventHandlerCreateRecord") {
+                    $scope.createRecord = {};
+                    $("#dialogCreateRecord").dialog("open");
+                    $scope.createRecord.Fields = {};
+                    $scope.createRecord = recordToEdit;
+                    $scope.createRecord.Fields = angular.fromJson(recordToEdit.Fields);
+
+                }
+                else if (recordToEdit.ObjType == "EventHandlerSendEmail") {
+
+
+                    $scope.sendEmailModel.To = $scope.getObjectFromJsonText(recordToEdit.To);
+                    $scope.sendEmailModel.From = $scope.getObjectFromJsonText(recordToEdit.From);
+                    $scope.sendEmailModel.CC = $scope.getObjectFromJsonText(recordToEdit.CC);
+                    $scope.sendEmailModel.BCC = $scope.getObjectFromJsonText(recordToEdit.BCC);
+
+                    $scope.sendEmailRecord = recordToEdit;
+
+                    $("#dialogSendEmail").dialog("open");
+                    //$scope.sendEmailModel = { From: [], CC: [], BCC: [], To: [] };
+
+
+
+                }
+                else if (recordToEdit.ObjType == "EventHandlerUpdateField") {
+                    $scope.fieldUpdateRecord = {};
+                    $scope.fieldUpdateRecord = angular.copy(recordToEdit);
+                    $scope.selectedField = recordToEdit.Field;
+                    $scope.selectedFieldValue = recordToEdit.Value.trim();
+                    $("#dialogUpdateField").dialog("open");
+
+                }
+
+            }
+            $scope.deleteRecord = function (recordToDelete) {
+                Engine.delete(recordToDelete, function (data) {
+
+                    if (data.ObjType == "EventHandlerCreateRecord") {
+                        for (var i in $scope.EventHandlerActionsById[data.EventHandlerScheduler.Id].CreateRecord) {
+                            if ($scope.EventHandlerActionsById[data.EventHandlerScheduler.Id].CreateRecord[i].Id == data.Id) {
+                                $scope.EventHandlerActionsById[data.EventHandlerScheduler.Id].CreateRecord.pop(i);
+                                break;
+                            }
+                        }
+                    } else
+                        if (data.ObjType == "EventHandlerSendEmail") {
+                            for (var i in $scope.EventHandlerActionsById[data.EventHandlerScheduler.Id].SendEmail) {
+                                if ($scope.EventHandlerActionsById[data.EventHandlerScheduler.Id].SendEmail[i].Id == data.Id) {
+                                    $scope.EventHandlerActionsById[data.EventHandlerScheduler.Id].SendEmail.pop(i);
+                                    break;
+                                }
+                            }
+                        } else
+                            if (data.ObjType == "EventHandlerUpdateField") {
+                                for (var i in $scope.EventHandlerActionsById[data.EventHandlerScheduler.Id].FieldUpdate) {
+                                    if ($scope.EventHandlerActionsById[data.EventHandlerScheduler.Id].FieldUpdate[i].Id == data.Id) {
+                                        $scope.EventHandlerActionsById[data.EventHandlerScheduler.Id].FieldUpdate.pop(i);
+                                        break;
+                                    }
+                                }
+                            }
+                    $scope.$apply();
+
+                });
+
+            }
+
+
+            //Object Fields
+            $scope.objectFields = { Fields: [], NonSystemFields: [] }
+            $scope.getObjectFields = function () {
+                RESTGet(Engine.AppPath + '/api/fieldDef?object=' + $scope.$parent.EventHandler.ObjectName.Name, function (data) {
+                    if (data.Success) {
+                        $scope.objectFields.Fields = data.Data;
+                        for (var i in data.Data) {
+                            if (!data.Data[i].IsSystemField) {
+                                $scope.objectFields.NonSystemFields.push(data.Data[i]);
+                            }
+
+                        }
+                        $scope.$apply();
+                    }
+                });
+            }
+
+            //Start Field Update Record
+            $scope.fieldUpdateRecord = {};
+            $scope.fieldUpdateRecord["ObjType"] = "EventHandlerUpdateField";
+            $scope.fieldToUpdateRecords = [];
+            $scope.showUpdateFieldDialog = function (record) {
+                $scope.fieldUpdateRecord = {};
+                $scope.fieldUpdateRecord["ObjType"] = "EventHandlerUpdateField";
+                $scope.fieldUpdateRecord["EventHandlerScheduler"] = record;
+                $scope.fieldUpdateRecord["Value"] = "";
+                $("#dialogUpdateField").dialog("open");
+
+            }
+
+            $scope.insertTextToField = function (selectdFieldToUpdate, fieldValue) {
+
+                //angular.element("#txtFieldUpdateValue").focus();
+                var txtarea = document.getElementById("txtFieldUpdateValue");
+                txtarea.selectionstart;
+                var strtext="";
+                if(selectdFieldToUpdate != undefined && selectdFieldToUpdate != null){
+
+                    if(fieldValue== undefined || fieldValue==null){
+                        strtext  = txtarea.value.substring(0, txtarea.selectionstart) + ' ' + fieldValue + ' ' + txtarea.value.substring(txtarea.selectionend);
+                    }else
+                    {
+                        strtext = fieldValue;
+                    }
+
+
+                    var hasField = false;
+                    for (var i in $scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate) {
+
+                        if (angular.equals($scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate[i].Field.Id, selectdFieldToUpdate.Id)) {
+                            $scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate[i].Value = fieldValue;
+                            $scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate[i].Name = selectdFieldToUpdate.Name;
+                            hasField = true;
+                        }
+                    }
+
+                    if (!hasField) {
+                        $scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate.push(angular.copy({ Name: selectdFieldToUpdate.Name, "Field":{Id: selectdFieldToUpdate.Id}, "Value":strtext, "EventHandlerScheduler": $scope.fieldUpdateRecord["EventHandlerScheduler"], "ObjType": "EventHandlerUpdateField" }));
+                    }
+                    txtarea.value ="";
+                    //  $scope.fieldUpdateRecord.Value = "";
+                }
+                txtarea.value ="";
+                $scope.fieldUpdateRecord.Value="";
+            }
+            $scope.saveFieldUpdate = function () {
+                $scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate = angular.copy($scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate);
+                Engine.save($scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate, function (data) {
+                    if (data.Success) {
+                        Engine.get(Engine.AppPath + "/api/data?query=SELECT * FROM [EventHandlerUpdateField] where EventHandlerScheduler ='" + $scope.fieldUpdateRecord.EventHandlerScheduler.Id + "'", function (data) {
+                            if (data.Data.length > 0) {
+                                $scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate = [];
+                                $scope.EventHandlerActionsById[$scope.fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate = data.Data;
+                                $scope.$apply();
+                            }
+                        });
+                        $("#dialogUpdateField").dialog("close");
+                    }
+                    $scope.$apply();
+                });
+            }
+            $scope.cancelFieldUpdate = function () {
+                $("#dialogUpdateField").dialog("close");
+            }
+            //End Field Update Record
+            //Start Create New Record
+            $scope.CreateRecordObjectFields = { NonSystemFields: [], Fields: [], selectedField: {}, selectedFieldValue: {}, textFieldValue: '' };
+            $scope.createRecord = {}
+            $scope.createRecord["ObjType"] = "EventHandlerCreateRecord";
+            $scope.createRecord["Fields"] = {};
+            $scope.createRecord["Name"] = 'Create Record';
+            $scope.showCreateRecordDialog = function (record) {
+                $("#dialogCreateRecord").dialog("open");
+                $scope.createRecord.Fields = {};
+                $scope.createRecord["EventHandlerScheduler"] = record.Id;
+
+                $scope.CreateRecordObjectFields.selectedField = {};
+                $scope.CreateRecordObjectFields.selectedFieldValue = {};
+                $scope.CreateRecordObjectFields.textFieldValue = '';
+
+            }
+
+            $scope.$watch('createRecord.ObjectName.Name', function () {
+
+                if (!angular.equals($scope.createRecord.ObjectName, undefined) && !angular.equals($scope.createRecord.ObjectName.Name, undefined) && !angular.equals($scope.createRecord.ObjectName.Name, '')) {
+                    RESTGet(Engine.AppPath + '/api/fieldDef?object=' + $scope.createRecord.ObjectName.Name, function (data) {
+
+                        if (data.Success) {
+                            $scope.CreateRecordObjectFields.Fields = data.Data;
+                            for (var i in data.Data) {
+                                if (!data.Data[i].IsSystemField) {
+                                    $scope.CreateRecordObjectFields.NonSystemFields.push(data.Data[i]);
+                                }
+
+                            }
+                            $scope.$apply();
+                        }
+                    });
+                }
+
+            });
+            $scope.addCreateRecordField = function () {
+                var txtarea = document.getElementById("txtAreaCreateRecord");
+                txtarea.selectionstart;
+
+                if (!angular.equals($scope.CreateRecordObjectFields.selectedField, undefined)) {
+
+                    if (!angular.equals($scope.CreateRecordObjectFields.selectedFieldValue, undefined)) {
+                        $scope.CreateRecordObjectFields.textFieldValue = txtarea.value.substring(0, txtarea.selectionstart) + ' ' + $scope.CreateRecordObjectFields.selectedFieldValue.Name + ' ' + txtarea.value.substring(txtarea.selectionend);
+                        $scope.createRecord.Fields[$scope.CreateRecordObjectFields.selectedField.Name] = $scope.CreateRecordObjectFields.textFieldValue;
+                    }
+
+                }
+                $scope.CreateRecordObjectFields.textFieldValue = '';
+            }
+            $scope.saveCreateReord = function () {
+                $scope.createRecord = angular.copy($scope.createRecord);
+                $scope.createRecord.Fields = angular.toJson($scope.createRecord.Fields);
+                Engine.save($scope.createRecord, function (data) {
+
+                    if (data.Success) {
+                        // data.Data.Fields = angular.fromJson(data.Data.Fields);
+                        Engine.get(Engine.AppPath + "/api/data?query=SELECT * FROM [EventHandlerCreateRecord] where EventHandlerScheduler ='" + data.Data.EventHandlerScheduler.Id + "'", function (data) {
+                            if (data.Data.length > 0) {
+                                for (var i in data.Data) {
+                                    data.Data[i].Fields = angular.fromJson(data.Data[i].Fields);
+                                }
+                                $scope.EventHandlerActionsById[data.Data[0].EventHandlerScheduler.Id].CreateRecord = [];
+                                $scope.EventHandlerActionsById[data.Data[0].EventHandlerScheduler.Id].CreateRecord = data.Data;
+                                $scope.$apply();
+                            }
+                        });
+                        //   $scope.EventHandlerActionsById[data.Data.EventHandlerScheduler.Id].CreateRecord.push(data.Data);
+                        $scope.cancelCreateRecord();
+                        $scope.$apply();
+                    }
+                });
+                $scope.createRecord.Fields = angular.fromJson($scope.createRecord.Fields);
+            }
+            $scope.cancelCreateRecord = function () {
+                $("#dialogCreateRecord").dialog("close");
+            }
+            $scope.deleteCreateRecordField = function (createRecordFieldToDelete) {
+                delete $scope.createRecord.Fields[createRecordFieldToDelete];
+
+            }
+
+            //End Create New Record
+
+
+            //Start Send Email Record
+            $scope.sendEmailRecord = {}
+            $scope.sendEmailRecord["ObjType"] = "EventHandlerSendEmail";
+            $scope.showSendEmailRecordDialog = function (record) {
+                $scope.sendEmailRecord = {}
+                $scope.sendEmailRecord["ObjType"] = "EventHandlerSendEmail";
+                $scope.sendEmailRecord["EventHandlerScheduler"] = record.Id;
+                $scope.sendEmailRecord["Name"]="Send Email";
+                $scope.sendEmailModel = { From: [], CC: [], BCC: [], To: [] };
+
+                $("#dialogSendEmail").dialog("open");
+
+            }
+            $scope.sendEmailUsers =  @Html.Raw(JsonObject.Serialize(Engine.Query(Model.Session.Id, "Select * From [User]", DeletedOption.NonDeletedOnly).Data));
+            $scope.sendEmailUsersById = {};
+            for (var i = 0; i <   $scope.sendEmailUsers.length; i++) {
+                $scope.sendEmailUsersById[ $scope.sendEmailUsers[i].Id] =  $scope.sendEmailUsers[i];
+            }
+
+            $scope.sendEmailObjectFields = [];
+            $scope.sendEmailModel = { From: [], CC: [], BCC: [], To: [] };
+
+
+            $scope.$watch('$parent.EventHandler.ObjectName', function () {
+
+                if (!angular.equals($scope.$parent.EventHandler, undefined) && !angular.equals($scope.$parent.EventHandler, null) && !angular.equals($scope.$parent.EventHandler.ObjectName, undefined) && !angular.equals($scope.$parent.EventHandler.ObjectName.Name, '')) {
+                    RESTGet(Engine.AppPath + '/api/fieldDef?object=' + $scope.$parent.EventHandler.ObjectName.Name, function (data) {
+                        $scope.sendEmailObjectFields = [];
+                        for (var i in data.Data) {
+                            if (data.Data[i].DisplayAs == "Email")
+                                $scope.sendEmailObjectFields.push(data.Data[i]);
+                        }
+                        $scope.$apply();
+                    });
+                }
+            })
+
+            $scope.saveSendEmailRecord = function () {
+
+                $scope.sendEmailRecord["From"] = $scope.getJsonText($scope.sendEmailModel.From);
+                $scope.sendEmailRecord["To"] = $scope.getJsonText($scope.sendEmailModel.To);
+                $scope.sendEmailRecord["CC"] = $scope.getJsonText($scope.sendEmailModel.CC);
+                $scope.sendEmailRecord["BCC"] = $scope.getJsonText($scope.sendEmailModel.BCC);
+                $scope.sendEmailRecord = angular.copy($scope.sendEmailRecord);
+                Engine.save($scope.sendEmailRecord, function (data) {
+                    if (data.Success) {
+
+                        //  $scope.sendEmailRecord = data.Data;
+                        Engine.get(Engine.AppPath + "/api/data?query=SELECT * FROM [EventHandlerSendEmail] where EventHandlerScheduler ='" + data.Data.EventHandlerScheduler.Id + "'", function (data) {
+                            if (data.Data.length > 0) {
+                                $scope.EventHandlerActionsById[data.Data[0].EventHandlerScheduler.Id].SendEmail = [];
+                                $scope.EventHandlerActionsById[data.Data[0].EventHandlerScheduler.Id].SendEmail = data.Data;
+                                $scope.$apply();
+                            }
+                        });
+                        //  $scope.EventHandlerActionsById[data.Data.EventHandlerScheduler.Id].SendEmail.push(data.Data);
+                        $scope.cancelSendEmailRecord();
+                    }
+                    $scope.$apply();
+
+                });
+            }
+            $scope.getJsonText = function (data) {
+                var tempList = [];
+                var str = "";
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i].label == "User")
+                        tempList.push({ EmailType: "User", User: data[i].Id });
+                    else if (data[i].label == "Field")
+                        tempList.push({ EmailType: "Field", Field: data[i].value });
+                    else if (data[i].label == "Email")
+                        tempList.push({ EmailType: "Email", Email: data[i].value });
+
+                }
+                str = JSON.stringify(tempList);
+                return str;
+
+            }
+            $scope.getObjectFromJsonText = function (jsonText) {
+                var tempList = JSON.parse(jsonText);
+                var listToReturn = [];
+                for (var i = 0; i < tempList.length; i++) {
+                    if (tempList[i].EmailType == "User")
+                        listToReturn.push({ label: "User", value:  $scope.sendEmailUsersById[tempList[i].User].Name,Id:tempList[i].User });
+                    else if (tempList[i].EmailType == "Field")
+                        listToReturn.push({ label: "Field", value: tempList[i].Field });
+                    else if (tempList[i].EmailType == "Email")
+                        listToReturn.push({ label: "Email", value: tempList[i].Email });
+                }
+                return listToReturn;
+            }
+
+            $scope.cancelSendEmailRecord = function () {
+                $("#dialogSendEmail").dialog("close");
+            }
+            $scope.addSendEmailFromRecord = function (user, selectedField, selectedEmail) {
+                $scope.sendEmailModel.From = [];
+                if (user != undefined) {
+                    $scope.sendEmailRecord["From"] = user.Email;
+                    $scope.sendEmailModel.From.push({ label: 'User', value: user.Name, Id: user.Id });
+                } else if (selectedField != undefined) {
+                    $scope.sendEmailRecord["From"] = selectedField.Name;
+                    $scope.sendEmailModel.From.push({ label: 'Field', value: selectedField.Name });
+                } else if (selectedEmail != undefined && selectedEmail != '') {
+                    $scope.sendEmailRecord["From"] = selectedEmail;
+                    $scope.sendEmailModel.From.push({ label: 'Email', value: selectedEmail });
+                }
+
+            }
+            $scope.deleteSendEmailFromRecord = function (recordToDelete, index) {
+                $scope.sendEmailModel.From = [];
+            }
+
+            $scope.addSendEmailToRecord = function (user, selectedField, selectedEmail) {
+                $scope.validate(user, selectedField, selectedEmail);
+                if (user != undefined) {
+                    $scope.sendEmailRecord["To"] = user.Email;
+                    $scope.sendEmailModel.To.push({ label: 'User', value: user.Name, Id: user.Id });
+                } else if (selectedField != undefined) {
+                    $scope.sendEmailRecord["To"] = selectedField.Name;
+                    $scope.sendEmailModel.To.push({ label: 'Field', value: selectedField.Name });
+                } else if (selectedEmail != undefined && selectedEmail != '') {
+                    $scope.sendEmailRecord["To"] = selectedEmail;
+                    $scope.sendEmailModel.To.push({ label: 'Email', value: selectedEmail });
+                }
+            }
+            $scope.validate= function (user, selectedField, selectedEmail){
+
+
+            }
+            $scope.deleteSendEmailToRecord = function (recordToDelete, index) {
+                $scope.sendEmailModel.To.pop(index);
+            }
+            $scope.addSendEmailCCRecord = function (user, selectedField, selectedEmail) {
+                if (user != undefined) {
+                    $scope.sendEmailRecord["CC"] = user.Email;
+                    $scope.sendEmailModel.CC.push({ label: 'User', value: user.Name, Id: user.Id });
+                } else if (selectedField != undefined) {
+                    $scope.sendEmailRecord["CC"] = selectedField.Name;
+                    $scope.sendEmailModel.CC.push({ label: 'Field', value: selectedField.Name });
+                } else if (selectedEmail != undefined && selectedEmail != '') {
+                    $scope.sendEmailRecord["CC"] = selectedEmail;
+                    $scope.sendEmailModel.CC.push({ label: 'Email', value: selectedEmail });
+                }
+            }
+            $scope.deleteSendEmailCCRecord = function (recordToDelete, index) {
+                $scope.sendEmailModel.CC.pop(index);
+            }
+            $scope.addSendEmailBBCRecord = function (user, selectedField, selectedEmail) {
+                if (user != undefined) {
+                    $scope.sendEmailRecord["BCC"] = user.Email;
+                    $scope.sendEmailModel.BCC.push({ label: 'User', value: user.Name, Id: user.Id });
+                } else if (selectedField != undefined) {
+                    $scope.sendEmailRecord["BCC"] = selectedField.Name;
+                    $scope.sendEmailModel.BCC.push({ label: 'Field', value: selectedField.Name });
+                } else if (selectedEmail != undefined && selectedEmail != '') {
+                    $scope.sendEmailRecord["BCC"] = selectedEmail;
+                    $scope.sendEmailModel.BCC.push({ label: 'Email', value: selectedEmail });
+                }
+            }
+            $scope.deleteSendEmailBBCRecord = function (recordToDelete, index) {
+                $scope.sendEmailModel.BCC.pop(index);
+            }
+            //End Send Email Record
+
+            $(function () {
+
+                $("#EventHandlerActionDialog").dialog({
+                    autoOpen: false,
+                    resizable: false,
+                    modal: true,
+                    width: 400,
+                    position: { at: "center" },
+
+                });
+                $("#dialogDeleteConfirmAction").dialog({
+                    autoOpen: false,
+                    resizable: false,
+                    modal: true,
+                    width: 400,
+                    position: { at: "center" },
+
+                    buttons: {
+                        "Yes": function () {
+                            Engine.delete($scope.actionRecordToDelete, function (data) {
+
+                                delete $scope.EventHandlerActionsById[data.Id];
+                                $scope.actionRecordToDelete = {};
+                                //   $scope.getAllEventHandlerActions();
+                                $scope.$apply();
+                            });
+                            $(this).dialog("close");
+                        },
+                        "No": function () {
+                            $scope.actionRecordToDelete = {};
+                            $(this).dialog("close");
+                        }
+                    }
+                });
+                $("#dialogEditScheduleAction").dialog({
+                    autoOpen: false,
+                    resizable: false,
+                    modal: true,
+                    width: 400,
+                    position: { at: "center" },
+                    buttons: {
+                        "Yes": function () {
+                            $(this).dialog("close");
+                        },
+                        "No": function () {
+                            $(this).dialog("close");
+                        }
+                    }
+                });
+
+
+                $("#dialogUpdateField").dialog({
+                    autoOpen: false,
+                    resizable: false,
+                    modal: true,
+                    width: '80%',
+                    position: { at: "center" },
+                    open: function (event, ui) {
+                        setTimeout(function () { angular.element("#txtFieldUpdateValue").focus(); }, 300);
+
+                    },
+                });
+
+                $("#dialogCreateRecord").dialog({
+                    autoOpen: false,
+                    resizable: false,
+                    modal: true,
+                    width: '80%',
+                    position: { at: "center" },
+                });
+                $("#dialogSendEmail").dialog({
+                    autoOpen: false,
+                    resizable: false,
+                    modal: true,
+                    width: '95%',
+                    position: { at: "center" },
+                });
+
+                $(window).resize(function () {
+                    $("#EventHandlerActionDialog").dialog("option", "position", "center");
+                    $("#dialogDeleteConfirmAction").dialog("option", "position", "center");
+                    $("#dialogEditScheduleAction").dialog("option", "position", "center");
+                    $("#dialogUpdateField").dialog("option", "position", "center");
+                    $("#dialogCreateRecord").dialog("option", "position", "center");
+                    $("#dialogSendEmail").dialog("option", "position", "center");
+
+                });
+            });
+        });
+        //        ng-options="field as field.Name for field in record.fields"
+        app.directive('sendEmail', function () {
+            var sendEmail = {
+                restrict: 'AE',
+                scope: {
+                    lable: '=',
+                    users: '=',
+                    fields: '=',
+                    action: '=',
+                    actiondelete: '=',
+                    data: '='
+                },
+                template:
+                        '<div class="pure-g-r">\
+                            <div class="pure-u-1-4">\
+                                <lable>{{lable}}</label>\
+                                <select class="pure-input-1" ng-model="selectedUser" ng-options="user as user.Name for user in users"><option value="">--None--</option></select>\
+                            </div>\
+                            <div class="pure-u-1-4">\
+                                <lable>&nbsp</label>\
+                                <select class="pure-input-1" ng-model="selectedField" ng-options="field as field.Name for field in fields"><option value="">--None--</option></select>\
+                            </div>\
+                            <div class="pure-u-1-4">\
+                                <lable>&nbsp</label>\
+                                <input class="pure-input-1" type="text" ng-model="EmailTxt">\
+                            </div>\
+                            <div class="pure-u-1-8">\
+                                <lable>&nbsp</label>\
+                                <div class="pure-input-1">\
+                                <button class="pure-button" ng-click="action(selectedUser,selectedField,EmailTxt);">Add</button></div>\
+                            </div>\
+                            <div class="pure-u-2-3">\
+                                <table class="pure-table pure-table-horizontal" ng-show="data.length > 0">\
+                                    <tr ng-repeat="record in data">\
+                                        <td style="text-align: right;"> {{record.label}}:</td>\
+                                        <td style="text-align: left;">{{record.value}}</td>\
+                                        <td><span class="ui-icon ui-icon-trash" style="float:right;cursor:pointer;" ng-click="actiondelete(record,$index);"></span></td>\
+                                    </tr>\
+                            </table>\
+                            </div>\
+                        </div>'
+            }
+            return sendEmail;
+        });
+        app.directive('enzEventHandlerScheduler', function () {
+            var enzEventHandlerScheduler = {
+                restrict: 'AE',
+                scope: {
+
+                },
+                template:
+                        '<form class="pure-form pure-form-stacked">\
+                              <div class="pure-g-r">\
+                                <div class="pure-u-1-8">\
+                                    Schedule On <select class="pure-input-1">\
+                                    <option value="Immidiate" selected>Immidiate</option>\
+                                    <option value="After">After</option>\
+                                    <option value="Before">Before</option>\
+                                    </select>\
+                                </div>   \
+                                <div class="pure-u-1-8" style="padding-left: 5px;">\
+                                   <lable>&nbsp</label> <input type="text" class="pure-input-1" />\
+                                </div>\
+                                <div class="pure-u-1-8" style="padding-left: 5px;">\
+                                    <lable>&nbsp</label>\
+                                    <select  class="pure-input-1" >\
+                                        <option value="Days" selected>Days</option>\
+                                        <option value="WeekDays">WeekDays</option>\
+                                        <option value="Hours">Hours</option>\
+                                    </select>\
+                                </div>\
+                                <div class="pure-u-1-8" style="padding-left: 5px;">\
+                                    <lable>&nbsp</label>\
+                                    <select  class="pure-input-1">\
+                                        <option value="CreatedOn" selected>Created On</option>\
+                                        <option value="ModifiedOn">Modified On</option>\
+                                    </select>\
+                                </div>\
+                              </div>\
+                        </form>'
+            }
+            return enzEventHandlerScheduler;
+        });
+    </script>
+
+    <div ng-controller="EventHandlerActionController">
+
+        <div class="pure-g-r" ng-show="$parent.EventHandler != null">
+            <div class="pure-u-1-1">
+                <button class="pure-button" ng-click="showEventHandlerActionDialog();">New Action</button>
+            </div>
+        </div>
+
+        <!--Repeate this in ng-repeate for each Action-->
+        <div ng-repeat="(key,value) in EventHandlerActionsById">
+            <fieldset>
+                <legend>{{value.Data.Name}}</legend>
+                <div class="pure-g-r">
+                    <div class="pure-u-7-8">
+                        <enz-event-handler-scheduler ng-show="value.IsEditScheulde"></enz-event-handler-scheduler>
+                    </div>
+                    <div class="pure-u-1-8">
+                        <span class="ui-icon ui-icon-trash" style="float:right;cursor:pointer;" ng-click="deleteEventHandlerAction(value.Data)"></span>
+                    </div>
+                    <div class="pure-u-1-8"></div>
+                    <div class="pure-u-7-8">
+                        <div style="float:right;">
+                            <button class="pure-button" ng-show="value.IsEditScheulde" ng-click="value.IsEditScheulde=false">Save Schedule</button>
+                            <button class="pure-button" ng-show="!value.IsEditScheulde" ng-click="value.IsEditScheulde=true">Edit Schedule</button>
+                        </div>
+                    </div>
+                    <div class="pure-u-1-8">
+                    </div>
+                    <div class="pure-u-7-8">
+                        <div style="float:right">
+                            <button class="pure-button" ng-click="showSendEmailRecordDialog(value.Data)">New Email </button>
+                            <button class="pure-button" ng-click="showUpdateFieldDialog(value.Data);">New Field Update</button>
+                            <button class="pure-button" ng-click="showCreateRecordDialog(value.Data);">New Create Record</button>
+                        </div>
+                    </div>
+                </div>
+
+                <br />
+                <table class="pure-table pure-table-bordered" style="width:100%" ng-show="value.FieldUpdate.length > 0 || value.CreateRecord.length > 0 || value.SendEmail.length > 0">
+                    <thead>
+                        <tr>
+                            <td>Actions</td>
+                            <td>Name</td>
+                            <td>Type</td>
+                            <td>Created On</td>
+                            <td>Created By</td>
+                            <td>Modified On</td>
+                            <td>Modified By</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="fieldUpdate in value.FieldUpdate">
+                            <td> <div ng-click="editRecord(fieldUpdate);" class="pure-button">Edit</div> <div ng-click="deleteRecord(fieldUpdate);" class="pure-button">Del</div></td>
+                            <td>{{fieldUpdate.Name}}</td>
+                            <td>Field Update</td>
+                            <td>{{fieldUpdate.CreatedOn | date:"MMM d, y h:mm:ss a Z"}}</td>
+                            <td>{{fieldUpdate.CreatedBy.Name}}</td>
+                            <td>{{fieldUpdate.ModifiedOn | date:"MMM d, y h:mm:ss a Z"}}</td>
+                            <td>{{fieldUpdate.ModifiedBy.Name}}</td>
+                        </tr>
+                        <tr ng-repeat="createRecord in value.CreateRecord">
+                            <td><div ng-click="editRecord(createRecord);" class="pure-button">Edit</div> <div ng-click="deleteRecord(createRecord);" class="pure-button">Del</div></td>
+                            <td>{{createRecord.Name}}</td>
+                            <td>Create Record</td>
+                            <td>{{createRecord.CreatedOn | date:"MMM d, y h:mm:ss a Z"}}</td>
+                            <td>{{createRecord.CreatedBy.Name}}</td>
+                            <td>{{createRecord.ModifiedOn | date:"MMM d, y h:mm:ss a Z"}}</td>
+                            <td>{{createRecord.ModifiedBy.Name}}</td>
+                        </tr>
+                        <tr ng-repeat="sendEmail in value.SendEmail">
+                            <td><div ng-click="editRecord(sendEmail);" class="pure-button">Edit</div> <div ng-click="deleteRecord(sendEmail);" class="pure-button">Del</div></td>
+                            <td>{{sendEmail.Name}}</td>
+                            <td>Send Email</td>
+                            <td>{{sendEmail.CreatedOn | date:"MMM d, y h:mm:ss a Z"}}</td>
+                            <td>{{sendEmail.CreatedBy.Name}}</td>
+                            <td>{{sendEmail.ModifiedOn | date:"MMM d, y h:mm:ss a Z"}}</td>
+                            <td>{{sendEmail.ModifiedBy.Name}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+            </fieldset>
+        </div>
+        <!--Start Action Dialog-->
+        <div id="EventHandlerActionDialog" class="pure-form pure-form-stacked" title="New Action" style="width:200px;">
+            <div class="pure-g-r">
+                <div class="pure-u-2-5" enz-field field="Name" ng-model="record" form="formRecord" mode="e"></div>
+            </div>
+            @*<div class="pure-g-r">
+                    <div class="pure-u-2-5" enz-field field="Task" ng-model="record" form="formRecord" mode="e"></div>
+                </div>*@
+            <button class="pure-button pure-button-primary" ng-click="saveEventHandlerAction();">Save</button>
+            <button class="pure-button" ng-click="cancelEventHandlerAction();">Cancel</button>
+
+        </div>
+        <!--End Action Dialog-->
+        <!--Start Update Field-->
+        <div id="dialogUpdateField" title="Update Field">
+            <form class="pure-form pure-form-stacked">
+                <div class="pure-g-r">
+                    <div class="pure-u-1-5">
+                        <label for="first-name">Field</label>
+                        <select ng-model="selectedField" ng-options="field as field.Name for field in objectFields.NonSystemFields"></select>
+                    </div>
+                    <div class="pure-u-1-5">
+                        <label for="first-name">Field Value</label>
+                        <select ng-model="selectedFieldValue" ng-options="field.Name as field.Name for field in objectFields.Fields"></select>
+                    </div>
+                    <div class="pure-u-3-5">
+                        <div class="pure-button" ng-click="insertTextToField(selectedField,selectedFieldValue);">Add</div>
+                    </div>
+                    <textarea id="txtFieldUpdateValue" ng-init="fieldUpdateRecord.Value=''" ng-model="fieldUpdateRecord.Value" style="width:90%;height:auto;"></textarea>
+                </div>
+                <button class="pure-button pure-button-primary" ng-click="saveFieldUpdate();">save</button>
+                <button class="pure-button" ng-click="cancelFieldUpdate();">Cancel</button>
+                <br />
+
+                <table class="pure-table pure-table-bordered" style="width:100%" ng-show="EventHandlerActionsById[fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate.length > 0 ">
+                    <thead>
+                        <tr>
+                            <td>Field</td>
+                            <td>Value</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="fieldRecord in EventHandlerActionsById[fieldUpdateRecord.EventHandlerScheduler.Id].FieldUpdate">
+                            <td>{{fieldRecord.Name}}</td>
+                            <td>{{fieldRecord.Value}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+        <!--End Update Field-->
+        <!--Start Create Record-->
+        <div id="dialogCreateRecord" title="Create Record">
+            <form name="formCreateRecord" class="pure-form pure-form-stacked">
+                <div class="pure-g-r">
+                    <div class="pure-u-23-24" enz-field field="ObjectName" ng-model="createRecord" form="formcreaterecord"></div>
+                    <div class="pure-u-1-5">
+                        <label>Field</label>
+                        <select ng-model="CreateRecordObjectFields.selectedField" ng-options="field as field.Name for field in CreateRecordObjectFields.NonSystemFields">
+                            <option value="">--None--</option>
+                        </select>
+                    </div>
+                    <div class="pure-u-1-5">
+                        <label>Field Value</label>
+                        <select ng-model="CreateRecordObjectFields.selectedFieldValue" ng-options="field as field.Name for field in CreateRecordObjectFields.Fields">
+                            <option value="">--None--</option>
+                        </select>
+                    </div>
+                    <div class="pure-u-1-5">
+                        <div class="pure-button" ng-click="addCreateRecordField();">Add</div>
+                    </div>
+                    <div class="pure-u-23-24">
+                        <textarea id="txtAreaCreateRecord" ng-model="CreateRecordObjectFields.textFieldValue" ng-init="CreateRecordObjectFields.TextFieldValue=''" style="width:100%;"></textarea>
+                    </div>
+                </div>
+                <div class="pure-g-r">
+                    <div style="margin-left: auto;margin-right:auto;">
+                        <button class="pure-button pure-button-primary" ng-click="saveCreateReord();">save</button>
+                        <button class="pure-button" ng-click="cancelCreateRecord();">Cancel</button>
+                    </div>
+                </div>
+                <table class="pure-table pure-table-bordered" style="width:100%">
+                    <thead>
+                        <tr>
+                            <td>Field </td>
+                            <td>Value </td>
+                            <td>Action</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="(createRecordKey,createRecordValue) in createRecord.Fields">
+                            <td>{{createRecordKey}}</td>
+                            <td> {{createRecordValue}} </td>
+                            <td><span class="ui-icon ui-icon-trash" style="float:right;cursor:pointer;" ng-click="deleteCreateRecordField(createRecordKey)"></span></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+            </form>
+        </div>
+        <!--End Create Record-->
+        <!--Start Create Record-->
+        <div id="dialogSendEmail" title="Send Email">
+            <form name="formSendEmailRecord" class="pure-form pure-form-stacked">
+                <div class="pure-g-r">
+                    <div class="pure-u-1-5" enz-field field="Template" ng-model="sendEmailRecord" form="formSendEmailRecord"></div>
+                    <div class="pure-u-4-5" send-email lable="'From'" users="sendEmailUsers" fields="sendEmailObjectFields" action="addSendEmailFromRecord" actiondelete="deleteSendEmailFromRecord" data="sendEmailModel.From"></div>
+                </div>
+                <div class="pure-g-r">
+                    <div class="pure-u-7-24"><div send-email lable="'To'" users="sendEmailUsers" fields="sendEmailObjectFields" action="addSendEmailToRecord" actiondelete="deleteSendEmailToRecord" data="sendEmailModel.To"></div></div>
+                    <div class="pure-u-7-24"><div send-email lable="'CC'" users="sendEmailUsers" fields="sendEmailObjectFields" action="addSendEmailCCRecord" actiondelete="deleteSendEmailCCRecord" data="sendEmailModel.CC"></div></div>
+                    <div class="pure-u-7-24"><div send-email lable="'BCC'" users="sendEmailUsers" fields="sendEmailObjectFields" action="addSendEmailBBCRecord" actiondelete="deleteSendEmailBBCRecord" data="sendEmailModel.BCC"></div></div>
+                </div>
+                <div class="pure-g-r">
+                    <div style="margin-left: auto;margin-right:auto;">
+                        <button class="pure-button pure-button-primary" ng-click="saveSendEmailRecord();">save</button>
+                        <button class="pure-button" ng-click="cancelSendEmailRecord();">Cancel</button>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+        <!--End Create Record-->
+    </div>
+    <!-- End EventHandlerActionController -->
+    <!--Start dialogDeleteConfirmAction Dialog-->
+    <div id="dialogDeleteConfirmAction" title="Waring">
+        <span class="ui-icon ui-icon-alert" style="float:left; margin:0 7px 20px 0;"></span>If you delete the action all previously scheduled actions due to this action will be removed.
+        <br /> Are you sure want to delete the Schedule?
+    </div>
+    <!--End dialogDeleteConfirmAction Dialog-->
+    <!--Start dialogEditConfirmAction Dialog-->
+    <div id="dialogEditScheduleAction" title="Waring">
+        <span class="ui-icon ui-icon-alert" style="float:left; margin:0 7px 20px 0;"></span>
+        If you edit the schedule all prevously scheduled actions will be removed, and based on new schedule new actions will be schedule when
+        records operated upon from now on.
+        <br />
+        Are you sure you want to edit the Schedule?
+    </div>
+    <!--End dialogEditConfirmAction Dialog-->
+</div>

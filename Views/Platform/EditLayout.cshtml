@@ -1,0 +1,147 @@
+﻿@{
+	ViewBag.Title = "Layout Editor";
+}
+
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+
+<script src="@Enzigma.Platform.Objects.SystemVars.CDNBaseUrl/application_js/angular/enz-layout.js"></script>
+
+<style>
+	.editor {
+		display: table;
+		width: 100%;
+	}
+
+		.editor > .left {
+			display: table-cell;
+			width: 200px;
+		}
+
+		.editor > .sections {
+			display: table-cell;
+			padding: 10px;
+			border: 1px solid #eee;
+		}
+
+	.components > div {
+		padding: 3px;
+		border: 1px solid #ccc;
+		margin: 3px;
+	}
+
+	.fields {
+	}
+
+		.fields > div > input[type=search] {
+			width: 180px;
+		}
+
+		.fields > div {
+			padding: 3px;
+			margin: 3px;
+			border: 1px solid #ccc;
+			text-overflow: ellipsis;
+		}
+
+	.section {
+		width: 100%;
+	}
+
+		.section > .pure-g-r {
+			background-color: #eee;
+			padding-bottom: 30px;
+		}
+
+		.section .toolbar {
+			position: absolute;
+			right: 10px;
+		}
+
+		.section .pure-u-input {
+			position: relative;
+		}
+
+			.section .pure-u-input .toolbar {
+				position: absolute;
+				right: 0px;
+				top: -5px;
+			}
+
+				.section .pure-u-input .toolbar button.pure-button {
+					padding: 1px;
+				}
+
+		.section button.pure-button {
+			padding: 5px;
+		}
+
+	.ui-sortable .pure-u-input, .ui-sortable .pure-u-input input {
+		cursor: pointer!important;
+	}
+
+	[enz-label] {
+		width: 100% !important;
+		cursor: pointer;
+	}
+
+		[enz-label] > input, [enz-label] > input.ng-dirty {
+			color: black!important;
+			width: 100% !important;
+			border: none !important;
+			padding: 0px !important;
+			margin: 0px !important;
+			box-shadow: none !important;
+			background-color: #abc6eb;
+			border-radius: 0px!important;
+		}
+
+	form {
+		width: 100%;
+	}
+
+	header {
+		border: 1px solid #aaa;
+		background-color: #ddd;
+		padding: 4px;
+	}
+</style>
+<div class="tabs" ng-app="Layout" ng-controller="LayoutController">
+	<ul>
+		<li><a id="editortab" href="#editor">Editor</a></li>
+		<li><a id="metadatatab" href="#metadata">Metadata</a></li>
+		<button id="btnSave" class="pure-button pure-button-primary" ng-click="save()">Save</button>
+	</ul>
+	<div id="editor">
+		<div class="editor" enz-layouteditor="record"></div>
+	</div>
+	<div id="metadata">
+		<div>
+			<div enz-record ng-model="record" displayfields="Name,Label,Object,Group,Device" showstandardbuttons="false" />
+		</div>
+	</div>
+	<div>
+		<div enz-conditioneditor ng-model="record.Conditions" object="record.Object.Name"></div>
+	</div>
+</div>
+
+@using Enzigma.Platform.Objects;
+<script language="javascript">
+	var Layout = angular.module('Layout', ['enz.controls', 'enz.layout']);
+	Layout.controller('LayoutController',['$scope', '$filter', function ($scope, $filter) {
+		$scope.record = @JsonObject.Serialize(Model.Data.Record);
+		
+		$scope.save = function(){
+			Engine.save($scope.record, function (error) {
+				if (error.Success){
+					$scope.record = error.Data;
+					$scope.$broadcast('setPristine', $scope.record);
+				}
+			});
+		}
+	}
+	]);
+	$(function () {
+		$('.tabs').tabs();
+	});
+
+</script>

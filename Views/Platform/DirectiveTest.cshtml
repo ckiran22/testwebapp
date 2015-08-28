@@ -1,0 +1,198 @@
+﻿@{
+	ViewBag.Title = "Directive Test";
+}
+@using Enzigma.Platform
+@using Enzigma.Platform.Objects
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+<h2>Directive Test</h2>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="@SystemVars.CDNBaseUrl/vendor_js/bootstrap/css/bootstrap.css" />
+<link rel="stylesheet" href="@SystemVars.CDNBaseUrl/vendor_js/bootstrap/css/bootstrap-theme.css" />
+<script src="@SystemVars.CDNBaseUrl/vendor_js/bootstrap/js/bootstrap.js" type="text/javascript"></script>
+<script src="@SystemVars.CDNBaseUrl/vendor_js/enz_table/enz-table.js" type="text/javascript"></script>
+<link rel="stylesheet" href="@SystemVars.CDNBaseUrl/vendor_js/enz_table/enz-table.css" />
+<style>
+
+</style>
+
+
+<div ng-app="enzTableModule" ng-controller="enzTableController">
+	<script>
+		var enzTableModule = angular.module("enzTableModule", ['enzTable']);
+		enzTableModule.controller("enzTableController", function ($scope) {
+			$scope.columns = [{ name: 'Action', label: 'Action', template: "<a href='{{record.Id}}'>Edit</a>", templateUrl: '', disableSort: true, showAlways: false, hideOnSingle: true },
+				{ name: 'Name', label: 'Name', template: "", templateUrl: '', disableSort: false, showAlways: true, margeFieldOnSingle: 'Action' },
+				{ name: 'ObjectName.Name', label: 'Object Name', template: "<a href='{{record.Id}}'>{{record.ObjectName.Name}}</a>", templateUrl: '', disableSort: false, showAlways: true },
+				{ name: 'Label', label: 'Label', template: '', templateUrl: '', disableSort: false, showAlways: false },
+				{ name: 'Length', label: 'Length', template: '', templateUrl: '', disableSort: false, showAlways: false },
+				{ name: 'SystemType', label: 'System Type', template: '', templateUrl: '', disableSort: false, showAlways: false },
+				{ name: 'Scale', label: 'Scale', template: '', templateUrl: '', disableSort: false, showAlways: false },
+				{ name: 'IsRequired', label: 'IsRequired', template: '', templateUrl: '', disableSort: false, showAlways: false },
+				{ name: 'OwnerId', label: 'OwnerId', template: '', templateUrl: '', disableSort: false, showAlways: false },
+				{ name: 'IsUnique', label: 'IsUnique', template: '', templateUrl: '', disableSort: false, showAlways: false },
+				{ name: 'DisplayAs', label: 'Display As', template: '', templateUrl: '', disableSort: false, showAlways: false }];
+
+			$scope.test = function (record, column) {
+				console.log(record);
+			}
+
+			$scope.object = { objectName: 'FieldDef', queryfields: 'Id, Name, Scale, OwnerId, IsUnique, IsRequired, ObjectName.Name, Label, DisplayAs, SystemType', criteria: "Name != ''" };
+			$scope.sortOrder = [{ name: 'Name', direction: 'asc' }];
+
+
+			$scope.testData = [
+				{ "DisplayAs": "PickList", "DBType": "nvarchar", "SystemType": "String", "ObjectName": { "Name": "Sharing", "ObjType": "ObjectDef" }, "Label": "Access", "IsUnique": false, "EncryptionType": "None", "IsRequired": false, "Length": 120, "Scale": 0, "OnParentDelete": "DoNothing", "OwnerId": "aaaeaaaaaaaaaaaaab", "Id": "aaacaaaaaaaaaaaaof", "Name": "Access", "RecordAccess": "A", "ObjType": "FieldDef" },
+				{ "DisplayAs": "PickList", "DBType": "nvarchar", "SystemType": "String", "ObjectName": { "Name": "SharingRuleUserOrGroupAccess", "ObjType": "ObjectDef" }, "Label": "Access", "IsUnique": false, "EncryptionType": "None", "IsRequired": true, "Length": 120, "Scale": 0, "OnParentDelete": "DoNothing", "OwnerId": "aaaeaaaaaaaaaaaaab", "Id": "aaacaaaaaaaaaaaaor", "Name": "Access", "RecordAccess": "A", "ObjType": "FieldDef" },
+				{ "DisplayAs": "ReferenceById", "DBType": "nchar", "SystemType": "DatabaseObject", "ObjectName": { "Name": "User", "ObjType": "ObjectDef" }, "Label": "Account", "IsUnique": false, "EncryptionType": "None", "IsRequired": true, "Length": 18, "Scale": 0, "OnParentDelete": "DoNothing", "OwnerId": "aaaeaaaaaaaaaaaaab", "Id": "aaacaaaaaaaaaaaaaw", "Name": "Account", "RecordAccess": "A", "ObjType": "FieldDef" },
+				{ "DisplayAs": "ReferenceById", "DBType": "nchar", "SystemType": "DatabaseObject", "ObjectName": { "Name": "Attachment", "ObjType": "ObjectDef" }, "Label": "Account", "IsUnique": false, "EncryptionType": "None", "IsRequired": false, "Length": 18, "Scale": 0, "OnParentDelete": "DoNothing", "OwnerId": "aaaeaaaaaaaaaaaaab", "Id": "aaacaaaaaaaaaaabcl", "Name": "Account", "RecordAccess": "A", "ObjType": "FieldDef" },
+				
+			];
+
+			$scope.getData = function (callback, object, queryFields, criteria, sortOrder, keyword, offset, size) {
+				var url = '@SystemVars.ApplicationBaseUrl/controls/TableView?fields=' + queryFields + '&criteria=' + criteria + '&objectName=' + object;
+				if (keyword)
+					url += "&searchkeyword=" + keyword;
+				var orderBy = '';
+				if (sortOrder) {
+					angular.forEach(sortOrder, function (sort) {
+						var direction = null;
+						if (sort.direction)
+							direction = sort.direction;
+						if (direction)
+							orderBy += '[' + sort.name + '] ' + direction + ',';
+					});
+					orderBy = orderBy.substr(0, orderBy.length - 1);
+				}
+				if (orderBy)
+					url += '&orderBy=' + orderBy;
+				if (size && offset >= 0)
+					url += '&pageSize=' + size + '&page=' + offset;
+				Engine.get(url, function (error) {
+					if (error.Success) {
+						if (typeof callback == "function") {
+							var retData = {};
+							retData["Data"] = error.Data;
+							retData["TotalCount"] = error.TotalRecords;
+
+							callback.call(this, retData);
+						}
+					}
+					else
+						alert(error.DebugMessage);
+				})
+			}
+			//$scope.getData = function (callback, object, queryFields, criteria, sortOrder, keyword, offset, size) {
+			//	setTimeout(function () {
+			//		if (typeof callback == "function") {
+			//			var retData = {};
+			//			retData["Data"] = $scope.testData;
+			//			retData["TotalCount"] = $scope.testData.length;
+
+			//			callback.call(this, retData);
+			//		}
+			//	}, 1000);
+			//}
+
+		})
+
+	</script>
+	<enz-table columns="columns" getdata="getData(callback, object, queryFields, criteria, sortOrder, keyword, offset, size)" sortorder="sortOrder" object="object"></enz-table>
+
+
+</div>
+
+@*<div ng-show="attachments.length > 0" style="clear: both;" class="attachments-actions">
+		<input type="search" ng-change="setPage(currentPage)" ng-model="keyword" class="ng-pristine ng-untouched ng-valid">
+		<button id="refresh" ng-click="refreshAttachments()">Refresh</button>
+		<button id="viewall" ng-click="viewAll()">View All</button>
+		<div class="pager">
+			<nav class="pagination">
+				<a class="first" ng-click="setPage(1)">&lt;&lt;</a>
+				<a class="prev" ng-click="addPage(-1)">&lt;</a>
+				<div class="pagedisplay ng-binding">1/4</div>
+				<a class="next" ng-click="addPage(1)">&gt;</a>
+				<a class="last" ng-click="setPage(pageCount)">&gt;&gt;</a>
+				<select class="pagesize ng-pristine ng-untouched ng-valid" ng-model="pageSize" ng-change="setPage(1)">
+					<option selected="selected" value="5">5</option>
+					<option value="10">10</option>
+					<option value="20">20</option>
+					<option value="30">30</option>
+					<option value="40">40</option>
+				</select>
+			</nav>
+		</div>
+	</div>*@
+
+
+@*<li class="dropdown">
+		\
+		<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">Page size {{pageSize}} <span class="caret"></span></a>\
+		<ul class="dropdown-menu" role="menu">
+			\
+			<li><a ng-click="pageSize = 5;callGetDataFunction(1)" href="#">5</a></li>\
+			<li><a ng-click="pageSize = 10;callGetDataFunction(1)" href="#">10</a></li>\
+			<li><a ng-click="pageSize = 20;callGetDataFunction(1)" href="#">20</a></li>\
+			<li><a ng-click="pageSize = 30;callGetDataFunction(1)" href="#">30</a></li>\
+			<li><a ng-click="pageSize = 40;callGetDataFunction(1)" href="#">40</a></li>\
+		</ul>\
+	</li>\*@
+
+
+
+
+@*<div class="pager attachments">
+	<div class="poweredby zoomInDown animated hinged">Powered By <a href="http://www.attachments.expert" target="_blank">Attachments.expert</a></div>
+	<nav class="pagination">
+	<a ng-click="refreshAttachments()">Refresh</a>
+	<a ng-click="viewAll()">View All</a>
+	<a class="first" ng-click="setPage(1)"><<</a>
+	<a class="prev" ng-click="addPage(-1)"><</a>
+	<div class="pagedisplay">{{currentPage}}/{{pageCount}}</div>
+	<a class="next" ng-click="addPage(1)">></a>
+	<a class="last" ng-click="setPage(pageCount)">>></a>
+	<select class="pagesize" ng-model="pageSize" ng-change="setPage(1)">
+	<option selected="selected" value="5">5</option>
+	<option value="10">10</option>
+	<option value="20">20</option>
+	<option value="30">30</option>
+	<option value="40">40</option>
+	</select>
+	</nav>
+	</div>
+	<input type="search" ng-change="setPage(currentPage)" ng-model="keyword" />
+	<table><tr ng-hide="attachments.length > 0"><td><div class="inline-text">No records to display</div><div wait-cursor ng-show="refreshingList" /></td></tr></table>
+
+		<table class="list attachments" border="0" cellspacing="0" cellpadding="0">
+		<tr ng-show="attachments.length > 0" class="headerRow">
+			<th name="action" style="min-width: 12em;max-width: 12em;width: 12em;">Action</th>
+			<th name="status" style="min-width: 15em;max-width: 15em;width: 15em;" ng-click="sort($event)">
+				<div class="inline-text">Status</div>
+				<div wait-cursor ng-show="refreshingList" />
+				<img class="sort-icon" src="/s.gif">
+			</th>
+			<th name="name" style="min-width: 20em;" ng-click="sort($event)">
+				Name
+				<img class="sort-icon" src="/s.gif">
+			</th>
+			<th name="size" style="min-width: 8em;" ng-click="sort($event)">
+				Size
+				<img class="sort-icon" src="/s.gif">
+			</th>
+			<th name="{{f.Name}}" ng-repeat="f in displayFields" ng-click="sort($event)">
+				{{f.Label}}
+				<img class="sort-icon" src="/s.gif">
+			</th>
+		</tr>
+		<tbody>
+			<tr ng-repeat="a in pagedAttachments">
+				<td class="actionColumn">
+					<a class="actionLink" href="" ng-click="deleteRecord(a)">Del</a> | <a href="" ng-click="download(a)" class="actionLink">Download</a> | <a href="" ng-click="view(a)" class="actionLink">View</a>
+					| <select ng-change="view(a, a.selectedVersion)" ng-model="a.selectedVersion" ng-options="v.value as v.label for v in a.versions"></select>
+				</td>
+				<td>{{a.status}} <div wait-cursor ng-show="a.status == 'Deleting' " /></td>
+				<td><a href="/{{a.id}}" target="_blank" class="actionLink">{{a.name}}</a></td>
+				<td>{{a.size}}</td>
+				<td ng-repeat="f in displayFields">{{displayField(a, f)}}</td>
+			</tr>
+		</tbody>
+	</table>*@

@@ -1,0 +1,29 @@
+﻿@{
+    ViewBag.Title = "Picklist Editor";
+}
+@using Enzigma.Platform;
+@using Enzigma.Platform.Objects;
+
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+
+<h2>PicklistEditor</h2>
+
+<div ng-app ng-controller="PicklistController">
+	Create New Picklist <input type="radio" ng-model="action" name="action" value="Create" /> Modify Existing Picklist <input ng-model="action" type="radio" name="action" value="Update"/>Delete Existing Picklist <input ng-model="action" type="radio" name="action" value="Delete"/>
+	<div ng-switch="action">
+		<input ng-switch-when="Create" ng-model="record.Name" type="text" />
+		<select ng-switch-default ng-model="selectedPicklist" ng-options="p.Id as p.Name for p in picklists"></select>
+	</div>
+</div>
+<script lang="javascript">
+	function PicklistController($scope)
+	{
+		@{
+		  Error error = Enzigma.Platform.Engine.QueryRaw( Model.Session.Id, "Id,Name", "Picklist");
+		  if( error.Success )
+		  {
+			  <text>$scope.picklists = @(Html.Raw(JsonObject.Serialize(error.Data)))</text>
+		  }
+	  }
+	}
+</script>

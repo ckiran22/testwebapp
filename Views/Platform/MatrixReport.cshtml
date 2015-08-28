@@ -1,0 +1,548 @@
+﻿@{
+	ViewBag.Title = "MatrixReport";
+}
+
+<h2>MatrixReport</h2>
+@using Enzigma.Platform;
+@using Enzigma.Platform.Objects;
+@using System.Text;
+
+@model Enzigma.Platform.Web.UI.PlatformPageContext
+
+
+@{
+	SummaryFormula[] columnFields = new SummaryFormula[] { new SummaryFormula("DisplayAs", "Display As", "DisplayAs"), new SummaryFormula("ObjectName", "Object Name", "ObjectName"), new SummaryFormula("Label", "Label", "Label") };//, new SummaryFormula("Label", "Label", "Label"), new SummaryFormula("OnParentDelete", "On Parent Delete", "OnParentDelete")
+	SummaryFormula[] rowFields = new SummaryFormula[] { new SummaryFormula("CreatedBy", "Created By", "CreatedBy"), new SummaryFormula("SystemType", "System Type", "SystemType")};//new SummaryFormula("CreatedOn", "Created On", "cast(datepart(Year, CreatedOn) as nvarchar)") };
+	SummaryFormula[] summaryFields = new SummaryFormula[] { new SummaryFormula("RecordCount", "Record Count", "count(*)"), new SummaryFormula("LengthSum", "Sum(Length)", "sum(Length)") };
+	@functions{
+		GroupedData GroupBy(NTuple<object> record, SummaryFormula[] fields)
+		{
+			var objRet = new JsonObject();
+			for (int iIndex = 0; iIndex < fields.Length; ++iIndex )
+			{
+				SummaryFormula field = fields[iIndex];
+				objRet[field.Name] = record.Values[iIndex];
+			}
+			return new GroupedData(){Record = objRet};
+		}
+
+		GroupedData[] GroupBy(JsonObject[] records, SummaryFormula[] fields)
+		{
+			String strFields = String.Join(",", fields.Select(f => f.Name));
+			IEnumerable<GroupedData> groupedRecords = records.GroupBy(r =>  new NTuple<object>(from f in fields select r[f.Name]))
+									.Select(r => GroupBy( r.Key, fields));
+
+			foreach (SummaryFormula field in fields)
+			{
+				if( groupedRecords is IOrderedEnumerable<GroupedData> )
+					groupedRecords = ((IOrderedEnumerable<GroupedData>)groupedRecords).ThenBy(r => r.Record[field.Name]);
+				else
+					groupedRecords = groupedRecords.OrderBy(r => r.Record[field.Name]);
+			}
+			return groupedRecords.ToArray();
+		}
+
+		String showColumns(GroupedData[] recordsForColumns, SummaryFormula[] columnFields, SummaryFormula[] rowFields)
+		{
+			int[] groupCount = new int[columnFields.Length];
+			String[] groupKey = new String[columnFields.Length];
+			StringBuilder[] rowBuilders = new StringBuilder[columnFields.Length];
+			int iColSpan = 1;
+			for (int iIndex = 0; iIndex < columnFields.Length; ++iIndex)
+			{
+				rowBuilders[iIndex] = new StringBuilder("<tr>");
+				foreach (SummaryFormula strField in rowFields)
+					rowBuilders[iIndex].Append("<td></td>");
+				//Line Added By Me
+				rowBuilders[iIndex].Append("<td></td>");
+				rowBuilders[iIndex].AppendFormat("<td>{0}</td>", columnFields[iIndex].Label);
+				
+			}
+
+			groupCount[columnFields.Length - 1] = iColSpan;
+
+			foreach (var groupedRecord in recordsForColumns)
+			{
+				Boolean bIsParentChanged = false;
+
+				for (int iIndex = columnFields.Length - 1; iIndex >= 0; --iIndex)
+				{
+					String strColumn = columnFields[iIndex].Name;
+					if (iIndex != columnFields.Length - 1)
+					{
+						//for (int iSubIndex = iIndex - 1; iSubIndex >= 0; iSubIndex--)
+						//{
+						//	if (!String.Equals(groupKey[iSubIndex], (String)groupedRecord.Record[columnFields[iSubIndex].Name], StringComparison.InvariantCultureIgnoreCase))
+						//	{
+						//		bIsParentChanged = true;
+						//	}
+						//}
+						if (!String.Equals(groupKey[iIndex], (String)groupedRecord.Record[strColumn], StringComparison.InvariantCultureIgnoreCase))
+						{
+							if (groupKey[iIndex] != null)
+							{
+								rowBuilders[iIndex].AppendFormat("<td colspan=\"{0}\">{1}</td>\n", groupCount[iIndex], groupKey[iIndex]);//+ ((columnFields.Length > 1) ? 1 : 0)
+								if (iIndex != 0)
+								{
+									if (!String.Equals(groupKey[iIndex - 1], (String)groupedRecord.Record[columnFields[iIndex - 1].Name], StringComparison.InvariantCultureIgnoreCase) && columnFields.Length > 1)
+									{
+										rowBuilders[iIndex].AppendFormat("<td rowspan=\"{0}\">SubTotal</td>", columnFields.Length - iIndex);
+										for (int subIndex = iIndex - 1; subIndex >= 0; subIndex--)
+										{
+											groupCount[subIndex] += 1;
+										}
+									}
+								}
+							}
+							groupKey[iIndex] = (String)groupedRecord.Record[strColumn];
+							groupCount[iIndex] = 0;
+						}
+
+						groupCount[iIndex] += iColSpan;
+					}
+					else
+					{
+						if (groupKey[iIndex] != null)
+						{
+							rowBuilders[iIndex].AppendFormat("<td colspan=\"{0}\">{1}</td>\n", groupCount[iIndex], groupKey[iIndex]);
+							if (!String.Equals(groupKey[iIndex - 1], (String)groupedRecord.Record[columnFields[iIndex - 1].Name], StringComparison.InvariantCultureIgnoreCase) && columnFields.Length > 1)
+							{
+								rowBuilders[iIndex].Append("<td>SubTotal</td>");
+								for (int subIndex = iIndex - 1; subIndex >= 0; subIndex--)
+								{
+									groupCount[subIndex] += 1;
+								}
+							}
+						}
+						groupKey[iIndex] = (String)groupedRecord.Record[strColumn];
+					}
+
+				}
+
+			}
+
+			//foreach (var groupedRecord in recordsForColumns)
+			//{
+			//	String preParent = null;
+			//	Boolean bIsParentChanged = false;
+			//	for (int iIndex = 0; iIndex < columnFields.Length; ++iIndex)
+			//	{
+			//		String strColumn = columnFields[iIndex].Name;
+			//		if (iIndex != columnFields.Length - 1)
+			//		{
+			//			for (int iSubIndex = iIndex; iSubIndex >= 0; iSubIndex--)
+			//			{
+			//				if (!String.Equals(groupKey[iSubIndex], (String)groupedRecord.Record[columnFields[iSubIndex].Name], StringComparison.InvariantCultureIgnoreCase))
+			//				{
+			//					bIsParentChanged = true;
+			//				}
+			//			}
+			//			if (bIsParentChanged)//!String.Equals(groupKey[iIndex], (String)groupedRecord.Record[strColumn], StringComparison.InvariantCultureIgnoreCase))
+			//			{
+			//				if (groupKey[iIndex] != null)
+			//				{
+			//					rowBuilders[iIndex].AppendFormat("<td colspan=\"{0}\">{1}</td>\n", groupCount[iIndex], groupKey[iIndex]);//+ ((columnFields.Length > 1) ? 1 : 0)
+			//					preParent = groupKey[iIndex];
+			//					if (iIndex != 0)
+			//					{
+			//						//if (!String.Equals(groupKey[iIndex - 1], (String)groupedRecord.Record[columnFields[iIndex - 1].Name], StringComparison.InvariantCultureIgnoreCase) && columnFields.Length > 1)
+			//						//{
+			//						//	rowBuilders[iIndex].Append("<td>SubTotal</td>");
+			//						//}
+			//					}
+			//				}
+			//				groupKey[iIndex] = (String)groupedRecord.Record[strColumn];
+			//				groupCount[iIndex] = 0;
+			//			}
+
+			//			groupCount[iIndex] += iColSpan;
+			//		}
+			//		else
+			//		{
+			//			if (groupKey[iIndex] != null)
+			//			{
+			//				rowBuilders[iIndex].AppendFormat("<td colspan=\"{0}\">{1}</td>\n", groupCount[iIndex], groupKey[iIndex]);
+			//				if (!String.IsNullOrEmpty(preParent) && !String.Equals(preParent, groupKey[iIndex - 1], StringComparison.InvariantCultureIgnoreCase) && columnFields.Length > 1)
+			//				{
+			//					//rowBuilders[iIndex].Append("<td>SubTotal</td>");
+			//					//for (int subIndex = iIndex - 1; subIndex > 0; subIndex--)
+			//					//{
+			//					//	groupCount[subIndex - 1] += 1;
+			//					//}
+			//				}
+			//			}
+			//			groupKey[iIndex] = (String)groupedRecord.Record[strColumn];
+			//		}
+			//	}
+
+			//}
+
+				for (int iIndex = 0; iIndex < columnFields.Length; ++iIndex)
+				{
+					rowBuilders[iIndex].AppendFormat("<td colspan=\"{0}\">{1}</td>\n</tr>", groupCount[iIndex], groupKey[iIndex]);
+					rowBuilders[iIndex].ToString();
+					if (iIndex != 0)
+						rowBuilders[0].AppendLine(rowBuilders[iIndex].ToString());
+				}
+			return rowBuilders[0].ToString();
+		}
+
+		String showRows(SummaryFormula[] columnFields, SummaryFormula[] rowFields, SummaryFormula[] summaryFields, GroupedData[] recordsForColumns, JsonObject[] records)
+		{
+			GroupedData[] recordsForRows = GroupBy(records, rowFields);
+			StringBuilder sbRet = new StringBuilder();
+			String[] groupKey = new String[rowFields.Length];
+			int[] groupCount = new int[rowFields.Length];
+			String[] rows = new String[records.Length];
+			int iRowSpan = 1;
+			IEnumerable<SummaryFormula> listAllFormulaes = columnFields.Concat(rowFields);
+			for (int iIndex = 0; iIndex < rowFields.Length; ++iIndex)
+			{
+				groupKey[iIndex] = (String)recordsForRows[recordsForRows.Length - 1].Record[rowFields[iIndex].Name];
+			}
+			int[] groupColCount = new int[columnFields.Length];
+			String[] groupColKey = new String[columnFields.Length];
+			for (int iRecordIndex = recordsForRows.Length - 1; iRecordIndex > 0; --iRecordIndex)
+			{
+				GroupedData record = recordsForRows[iRecordIndex];
+				sbRet = new StringBuilder("<tr>");
+
+				for (int iIndex = 0; iIndex < rowFields.Length; ++iIndex)
+				{
+					String strField = rowFields[iIndex].Name;
+					/*if( iIndex == rowFields.Length - 1)
+					{
+						sbRet.AppendFormat("<td rowspan=\"{1}\">{0}</td>", (String)record.Record[strField], iRowSpan);
+					}
+					else*/
+					{
+						if (!String.Equals(groupKey[iIndex], (String)recordsForRows[iRecordIndex - 1].Record[strField], StringComparison.InvariantCultureIgnoreCase))
+						{
+							if (groupKey[iIndex] != null)
+								sbRet.AppendFormat("<td rowspan=\"{1}\">{0}</td>", groupKey[iIndex], groupCount[iIndex] + 1);
+							groupKey[iIndex] = (String)recordsForRows[iRecordIndex - 1].Record[strField];
+							groupCount[iIndex] = 0;
+						}
+						else
+							groupCount[iIndex] += iRowSpan;
+					}
+				}
+				//Line Added By Me
+				sbRet.AppendFormat("<td>{0}</td>", String.Join("", summaryFields.Select(s => s.Label + "<br />")));
+				//Line Added By Me
+				groupColCount = new int[columnFields.Length];
+				groupColKey = new String[columnFields.Length];
+				foreach(GroupedData columnGroup in recordsForColumns)
+				{
+					//
+					for (int iIndex = columnFields.Length - 1; iIndex >= 0; --iIndex)
+					{
+						String strColumn = columnFields[iIndex].Name;
+						if (iIndex != columnFields.Length - 1)
+						{
+							if (!String.Equals(groupColKey[iIndex], (String)columnGroup.Record[strColumn], StringComparison.InvariantCultureIgnoreCase))
+							{
+								if (groupColKey[iIndex] != null)
+								{
+									if (iIndex != 0)
+									{
+										if (!String.Equals(groupColKey[iIndex - 1], (String)columnGroup.Record[columnFields[iIndex - 1].Name], StringComparison.InvariantCultureIgnoreCase) && columnFields.Length > 1)
+										{
+											IEnumerable<String> values = groupColKey.Take(iIndex).Select(c => c);//from f in columnFields.Take(iIndex) select (String)columnGroup.Record[f.Name];
+											values = values.Concat(from f in rowFields select (String)recordsForRows[0].Record[f.Name]);
+											NTuple<object> objKey = new NTuple<object>(values);
+											IEnumerable<JsonObject> recordsFound = records.Where(r => new NTuple<Object>(from f in listAllFormulaes select r[f.Name]).Equals(objKey));
+											if (recordsFound.Count() > 0)
+											{
+												JsonObject recordFirst = recordsFound.First();
+												sbRet.AppendFormat("<td>Subtotal{0}</td>", String.Join("", summaryFields.Select(s => recordFirst[s.Name] + "<br />")));
+											}
+											else
+												sbRet.AppendFormat("<td>Subtotal{0}</td>", String.Join("", summaryFields.Select(s => "0<br />")));
+										}
+									}
+								}
+								groupColKey[iIndex] = (String)columnGroup.Record[strColumn];
+								groupColCount[iIndex] = 0;
+							}
+
+							groupColCount[iIndex] += 1;
+						}
+						else
+						{
+							if (groupColKey[iIndex] != null)
+							{
+								IEnumerable<String> values = groupColKey.Take(iIndex + 1).Select(c => c);//from f in columnFields.Take(iIndex + 1) select (String)columnGroup.Record[f.Name];
+								values = values.Concat(from f in rowFields select (String)recordsForRows[0].Record[f.Name]);
+								NTuple<object> objKey = new NTuple<object>(values);
+								IEnumerable<JsonObject> recordsFound = records.Where(r => new NTuple<Object>(from f in listAllFormulaes select r[f.Name]).Equals(objKey));
+								if (recordsFound.Count() > 0)
+								{
+									JsonObject recordFirst = recordsFound.First();
+									sbRet.AppendFormat("<td>{0}</td>", String.Join("", summaryFields.Select(s => recordFirst[s.Name] + "<br />")));
+								}
+								else
+									sbRet.AppendFormat("<td>{0}</td>", String.Join("", summaryFields.Select(s => "0<br />")));
+								if (!String.Equals(groupColKey[iIndex - 1], (String)columnGroup.Record[columnFields[iIndex - 1].Name], StringComparison.InvariantCultureIgnoreCase) && columnFields.Length > 1)
+								{
+									values = groupColKey.Take(iIndex).Select(c => c);//from f in columnFields.Take(iIndex) select (String)columnGroup.Record[f.Name];
+									values = values.Concat(from f in rowFields select (String)recordsForRows[0].Record[f.Name]);
+									objKey = new NTuple<object>(values);
+									recordsFound = records.Where(r => new NTuple<Object>(from f in listAllFormulaes select r[f.Name]).Equals(objKey));
+									if (recordsFound.Count() > 0)
+									{
+										JsonObject recordFirst = recordsFound.First();
+										sbRet.AppendFormat("<td>Subtotal{0}</td>", String.Join("", summaryFields.Select(s => recordFirst[s.Name] + "<br />")));
+									}
+									else
+										sbRet.AppendFormat("<td>Subtotal{0}</td>", String.Join("", summaryFields.Select(s => "0<br />")));
+								}
+							}
+							groupColKey[iIndex] = (String)columnGroup.Record[strColumn];
+						}
+
+					}
+					//
+					//IEnumerable<String> values = from f in columnFields select (String)columnGroup.Record[f.Name];
+					//values = values.Concat(from f in rowFields select (String)recordsForRows[0].Record[f.Name]);
+					//NTuple<object> objKey = new NTuple<object>(values);
+					//IEnumerable<JsonObject> recordsFound = records.Where(r => new NTuple<Object>(from f in listAllFormulaes select r[f.Name]).Equals(objKey));
+					//if (recordsFound.Count() > 0)
+					//{
+					//	JsonObject recordFirst = recordsFound.First();
+					//	sbRet.AppendFormat("<td>{0}</td>", String.Join("", summaryFields.Select(s => recordFirst[s.Name] + "<br />")));
+					//}
+					//else
+					//	sbRet.Append("<td>-</td>");
+				}
+				sbRet.AppendLine("</tr>\n");
+				rows[iRecordIndex] = sbRet.ToString();
+			}
+
+			sbRet = new StringBuilder("<tr>");
+			
+			for (int iIndex = 0; iIndex < rowFields.Length; ++iIndex)
+			{
+				String strField = rowFields[iIndex].Name;
+				if (iIndex == rowFields.Length - 1)
+				{
+					sbRet.AppendFormat("<td rowspan=\"{1}\">{0}</td>", (String)recordsForRows[0].Record[strField], iRowSpan);
+				}
+				else
+				{
+					sbRet.AppendFormat("<td rowspan=\"{1}\">{0}</td>", (String)recordsForRows[0].Record[strField], groupCount[iIndex] + 1);
+				}
+			}
+			//Line Added By Me
+			sbRet.AppendFormat("<td>{0}</td>", String.Join("", summaryFields.Select(s => s.Label + "<br />")));
+			//Line Added By Me
+			groupColCount = new int[columnFields.Length];
+			groupColKey = new String[columnFields.Length];
+			foreach (GroupedData columnGroup in recordsForColumns)
+			{
+				//
+				for (int iIndex = columnFields.Length - 1; iIndex >= 0; --iIndex)
+				{
+					String strColumn = columnFields[iIndex].Name;
+					if (iIndex != columnFields.Length - 1)
+					{
+						if (!String.Equals(groupColKey[iIndex], (String)columnGroup.Record[strColumn], StringComparison.InvariantCultureIgnoreCase))
+						{
+							if (groupColKey[iIndex] != null)
+							{
+								if (iIndex != 0)
+								{
+									if (!String.Equals(groupColKey[iIndex - 1], (String)columnGroup.Record[columnFields[iIndex - 1].Name], StringComparison.InvariantCultureIgnoreCase) && columnFields.Length > 1)
+									{
+										IEnumerable<String> values = groupColKey.Take(iIndex).Select(c => c);//from f in columnFields.Take(iIndex) select (String)columnGroup.Record[f.Name];
+										values = values.Concat(from f in rowFields select (String)recordsForRows[0].Record[f.Name]);
+										NTuple<object> objKey = new NTuple<object>(values);
+										IEnumerable<JsonObject> recordsFound = records.Where(r => new NTuple<Object>(from f in listAllFormulaes select r[f.Name]).Equals(objKey));
+										if (recordsFound.Count() > 0)
+										{
+											JsonObject recordFirst = recordsFound.First();
+											sbRet.AppendFormat("<td>Subtotal{0}</td>", String.Join("", summaryFields.Select(s => recordFirst[s.Name] + "<br />")));
+										}
+										else
+											sbRet.AppendFormat("<td>Subtotal{0}</td>", String.Join("", summaryFields.Select(s => "0<br />")));
+									}
+								}
+							}
+							groupColKey[iIndex] = (String)columnGroup.Record[strColumn];
+							groupColCount[iIndex] = 0;
+						}
+
+						groupColCount[iIndex] += 1;
+					}
+					else
+					{
+						if (groupColKey[iIndex] != null)
+						{
+							IEnumerable<String> values = groupColKey.Take(iIndex + 1).Select(c => c);//from f in columnFields.Take(iIndex + 1) select (String)columnGroup.Record[f.Name];
+							values = values.Concat(from f in rowFields select (String)recordsForRows[0].Record[f.Name]);
+							NTuple<object> objKey = new NTuple<object>(values);
+							IEnumerable<JsonObject> recordsFound = records.Where(r => new NTuple<Object>(from f in listAllFormulaes select r[f.Name]).Equals(objKey));
+							if (recordsFound.Count() > 0)
+							{
+								JsonObject recordFirst = recordsFound.First();
+								sbRet.AppendFormat("<td>{0}</td>", String.Join("", summaryFields.Select(s => recordFirst[s.Name] + "<br />")));
+							}
+							else
+								sbRet.AppendFormat("<td>{0}</td>", String.Join("", summaryFields.Select(s => "0<br />")));
+							if (!String.Equals(groupColKey[iIndex - 1], (String)columnGroup.Record[columnFields[iIndex - 1].Name], StringComparison.InvariantCultureIgnoreCase) && columnFields.Length > 1)
+							{
+								values = groupColKey.Take(iIndex).Select(c => c);//from f in columnFields.Take(iIndex) select (String)columnGroup.Record[f.Name];
+								values = values.Concat(from f in rowFields select (String)recordsForRows[0].Record[f.Name]);
+								objKey = new NTuple<object>(values);
+								recordsFound = records.Where(r => new NTuple<Object>(from f in listAllFormulaes select r[f.Name]).Equals(objKey));
+								if (recordsFound.Count() > 0)
+								{
+									JsonObject recordFirst = recordsFound.First();
+									sbRet.AppendFormat("<td>Subtotal{0}</td>", String.Join("", summaryFields.Select(s => recordFirst[s.Name] + "<br />")));
+								}
+								else
+									sbRet.AppendFormat("<td>Subtotal{0}</td>", String.Join("", summaryFields.Select(s => "0<br />")));
+							}
+						}
+						groupColKey[iIndex] = (String)columnGroup.Record[strColumn];
+					}
+
+				}
+				//
+				//IEnumerable<String> values = from f in columnFields select (String)columnGroup.Record[f.Name];
+				//values = values.Concat(from f in rowFields select (String)recordsForRows[0].Record[f.Name]);
+				//NTuple<object> objKey = new NTuple<object>(values);
+				//IEnumerable<JsonObject> recordsFound = records.Where(r => new NTuple<Object>(from f in listAllFormulaes select r[f.Name]).Equals(objKey));
+				//if (recordsFound.Count() > 0)
+				//{
+				//	JsonObject record = recordsFound.First();
+				//	sbRet.AppendFormat("<td>{0}</td>", String.Join("", summaryFields.Select(s => record[s.Name] + "<br />")));
+				//}
+				//else
+				//	sbRet.Append("<td>-</td>");
+			}
+			sbRet.AppendLine("</tr>\n");
+			rows[0] = sbRet.ToString();
+			
+			return String.Format("{0}{1}", String.Format("<tr>{0}<td rowspan=\"{1}\">Drop a field here to create a row grouping.</td><td colspan=\"{2}\">Drop a field here to create a column grouping.</td></tr>", String.Join("", rowFields.Select(r => String.Format("<td>{0}</td>", r.Label))), recordsForRows.Length + 1,recordsForColumns.Length )
+			,String.Join("\n", rows));
+		}
+		
+		class GroupedData {
+			public JsonObject Record;
+		}
+
+		class NTuple<T> : IEquatable<NTuple<T>>
+		{
+			public NTuple(IEnumerable<T> values)
+			{
+				Values = values.ToArray();
+			}
+
+			public readonly T[] Values;
+
+			public override bool Equals(object obj)
+			{
+				if (ReferenceEquals(this, obj))
+					return true;
+				if (obj == null)
+					return false;
+				return Equals(obj as NTuple<T>);
+			}
+
+			public bool Equals(NTuple<T> other)
+			{
+				if (ReferenceEquals(this, other))
+					return true;
+				if (other == null)
+					return false;
+				var length = Values.Length;
+				if (length != other.Values.Length)
+					return false;
+				for (var i = 0; i < length; ++i)
+					if (!Equals(Values[i], other.Values[i]))
+						return false;
+				return true;
+			}
+
+			public override int GetHashCode()
+			{
+				var hc = 17;
+				foreach (var value in Values)
+					hc = hc * 37 + (!ReferenceEquals(value, null) ? value.GetHashCode() : 0);
+				return hc;
+			}
+		}
+		
+		class SummaryFormula {
+			public SummaryFormula(String strName, String strLabel, String strFormula)
+			{
+				Name = strName;
+				Label = strLabel;
+				Formula = strFormula;
+			}
+			public String Name;
+			public String Label;
+			public String Formula;
+		}
+	}
+	
+	String strColumnFields = String.Join(",", columnFields.Select(r => r.Formula + " AS [" + r.Name + "]"));
+	String strRowFields = String.Join(",", rowFields.Select(r => r.Formula + " AS [" + r.Name + "]"));
+	String strColumnNames = String.Join(",", columnFields.Select(r => "[" + r.Name + "]"));
+	String strRowNames = String.Join(",", rowFields.Select(r => "[" + r.Name + "]"));
+	String strSummaryFields = String.Join(",", summaryFields.Select(r => r.Formula + " AS [" + r.Name + "]"));
+	String strQuery = "Select COUNT(*) AS [_RECORDS_COUNT], " + strColumnFields + "," + strRowFields + "," + strSummaryFields + " From [FieldDef] Group By " + strColumnNames + "," + strRowNames + " Order By " + strColumnNames + "," + strRowNames;
+	//Error error = Engine.Query(Model.Session.Id, "Select DisplayAs, CreatedBy.Name, CreatedOn, COUNT(*) AS [_RECORDS_COUNT] From [FieldDef] Group By DisplayAs, ObjectName.Name, CreatedBy.Name, CreatedOn", 100, 1, DeletedOption.NonDeletedOnly);'BigInt', 'Blob',
+	Error error = Engine.QueryRaw(Model.Session.Id, strQuery, "JsonObject");
+	if( error.Success ) {
+		JsonObject[] records = (JsonObject[])error.Data;
+
+		@*<table border="1">
+			<tr>
+				@foreach (SummaryFormula column in columnFields){
+					<td>@column.Label</td>
+				}
+				@foreach (SummaryFormula row in rowFields)
+				{
+					<td>@row.Label</td>
+				}
+				@foreach (SummaryFormula summary in summaryFields)
+				{
+					<td>@summary.Label</td>
+				}
+				<td>Record Count</td>
+			</tr>
+			@foreach (JsonObject record in records)
+			{
+				<tr>
+				@foreach (SummaryFormula column in columnFields){
+					<td>@record[column.Name]</td>
+				}
+				@foreach (SummaryFormula row in rowFields)
+				{
+					<td>@record[row.Name]</td>
+				}
+				@foreach (SummaryFormula summary in summaryFields)
+				{
+					<td>@record[summary.Name]</td>
+				}
+				<td>@record["_RECORDS_COUNT"]</td>
+				</tr>
+			}
+		</table>*@
+	
+		
+		<table border="1">
+			@{
+				var groupedRecords = GroupBy(records,  columnFields);
+				@Html.Raw(showColumns(groupedRecords, columnFields, rowFields))
+				@Html.Raw(showRows(columnFields, rowFields, summaryFields, groupedRecords, records))
+			}
+		</table>
+		
+	}
+	else {
+		@error.ErrorMessage
+	}
+}
